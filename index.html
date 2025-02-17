@@ -5,39 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Bright, Modern, and Sleek UI */
+    /* Modern Bright Background with Animated Gradient */
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
       font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
       background: linear-gradient(135deg, #f6d365, #fda085);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
       color: #333;
     }
-    /* Canvas with a crisp white background */
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    /* Canvas: White Background for Clarity */
     #gameCanvas {
       display: block;
       background: #fff;
     }
-    /* HUD: clean, semi-transparent box */
+    /* HUD Styling: Clean, Semi-Transparent Box */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
       z-index: 10;
-      font-size: 20px;
+      font-size: 22px;
       background: rgba(255,255,255,0.9);
       padding: 10px 15px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-    /* Start Button: modern flat design */
+    /* Start Button: Modern Flat Design */
     #startButton {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      padding: 15px 25px;
+      padding: 20px 30px;
       font-size: 24px;
       background: #4caf50;
       border: none;
@@ -51,15 +58,15 @@
     #startButton:hover {
       background: #43a047;
     }
-    /* Game Over Overlay: modern and sleek */
+    /* Game Over Overlay: Sleek & Modern */
     #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(255,255,255,0.95);
-      color: #d32f2f;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -68,8 +75,29 @@
       z-index: 30;
       text-align: center;
       padding: 30px;
-      border-top: 4px solid #d32f2f;
-      display: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #gameOverOverlay.show {
+      opacity: 1;
+    }
+    #gameOverOverlay .message {
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    #gameOverOverlay button {
+      padding: 15px 25px;
+      font-size: 20px;
+      background: #4caf50;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      transition: background 0.3s ease;
+    }
+    #gameOverOverlay button:hover {
+      background: #43a047;
     }
   </style>
 </head>
@@ -81,10 +109,11 @@
   </div>
   <button id="startButton">Start Game</button>
   <div id="gameOverOverlay">
-    Game Over!<br>
-    <span id="scoreInfo"></span>
+    <div class="message">Game Over!</div>
+    <div id="scoreInfo"></div>
+    <button id="restartButton">Play Again</button>
   </div>
-
+  
   <script>
     /************************************
      * Global Variables and Setup
@@ -96,6 +125,7 @@
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
+    const restartButton = document.getElementById('restartButton');
     
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -104,7 +134,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // The ball controlled by the player.
+    // Ball object.
     let ball = {
       x: 0,
       y: 0,
@@ -113,14 +143,14 @@
       vy: 0
     };
     
-    // Tilt values from device orientation.
+    // Tilt values.
     let tilt = { x: 0, y: 0 };
     const accelerationFactor = 0.05;
     const friction = 0.98;
     
     // Game state variables.
-    let currentLevel = 0;  // Displayed as currentLevel + 1.
-    let levelData;         // Contains absolute coordinates for finish and walls.
+    let currentLevel = 0; // Displayed as currentLevel + 1.
+    let levelData;        // Contains absolute positions for finish & walls.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -130,11 +160,10 @@
      * Infinite Level Generation
      ************************************/
     function generateRandomLevel(levelNumber) {
-      // Coin flip to decide start/finish positions.
+      // Choose start and finish positions (coin flip).
       let swap = Math.random() < 0.5;
       let start = swap ? { x: 0.8, y: 0.8 } : { x: 0.1, y: 0.1 };
       let finish = swap ? { x: 0.1, y: 0.1 } : { x: 0.8, y: 0.8 };
-      // Add slight randomness.
       start.x += (Math.random() - 0.5) * 0.05;
       start.y += (Math.random() - 0.5) * 0.05;
       finish.x += (Math.random() - 0.5) * 0.05;
@@ -227,7 +256,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check if the ball's center enters the finish area.
+      // Check if ball's center is within finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -274,7 +303,8 @@
       let finish = levelData.finish;
       ctx.fillStyle = 'green';
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      ctx.fillStyle = 'white';
+      // Obstacles now in dark gray.
+      ctx.fillStyle = '#333';
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
@@ -307,17 +337,16 @@
       if (score > storedHighScore) {
         localStorage.setItem('mazeHighScore', score);
       }
-      gameOverOverlay.innerText = `Game Over!\nScore: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
-      gameOverOverlay.style.display = 'flex';
+      scoreInfo.innerText = `Score: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
+      gameOverOverlay.classList.add('show');
       setTimeout(() => {
-        // Reset score and level.
+        gameOverOverlay.classList.remove('show');
         score = 0;
         currentLevel = 0;
         loadLevel(currentLevel);
         remainingTime = 10.0;
         lastTime = performance.now();
         gameRunning = true;
-        gameOverOverlay.style.display = 'none';
         requestAnimationFrame(gameLoop);
       }, 2000);
     }
@@ -341,7 +370,6 @@
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
       }
-      // Reset score and level on fresh start.
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
@@ -351,6 +379,10 @@
     }
     
     startButton.addEventListener('click', startGame);
+    restartButton.addEventListener('click', () => {
+      gameOverOverlay.classList.remove('show');
+      startGame();
+    });
   </script>
 </body>
 </html>
