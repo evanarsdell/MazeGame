@@ -5,80 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Brighter Background with Gradient */
-    body {
+    /* Bright, Modern, and Sleek UI */
+    html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      /* A vibrant gradient background */
-      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-      background-size: 400% 400%;
-      animation: gradientBG 15s ease infinite;
       font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      color: #eee;
+      background: linear-gradient(135deg, #f6d365, #fda085);
+      color: #333;
     }
-    @keyframes gradientBG {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    /* Canvas for game drawing */
+    /* Canvas with a crisp white background */
     #gameCanvas {
       display: block;
-      background: #222;
+      background: #fff;
     }
-    /* HUD Styling */
+    /* HUD: clean, semi-transparent box */
     #hud {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 20px;
+      left: 20px;
       z-index: 10;
-      font-size: 22px;
-      line-height: 1.6;
-      padding: 8px 12px;
-      background: rgba(0, 0, 0, 0.5);
+      font-size: 20px;
+      background: rgba(255,255,255,0.9);
+      padding: 10px 15px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-    /* Start Button Styling */
+    /* Start Button: modern flat design */
     #startButton {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      padding: 20px 30px;
-      font-size: 22px;
-      background: #28a745;
-      color: #fff;
+      padding: 15px 25px;
+      font-size: 24px;
+      background: #4caf50;
       border: none;
-      border-radius: 10px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      border-radius: 5px;
+      color: #fff;
       cursor: pointer;
-      z-index: 20;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
       transition: background 0.3s ease;
+      z-index: 20;
     }
     #startButton:hover {
-      background: #218838;
+      background: #43a047;
     }
-    /* Game Over Overlay Styling */
+    /* Game Over Overlay: modern and sleek */
     #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      color: #ff5555;
+      background: rgba(255,255,255,0.95);
+      color: #d32f2f;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
-      font-size: 42px;
+      font-size: 36px;
       z-index: 30;
       text-align: center;
-      padding: 20px;
+      padding: 30px;
+      border-top: 4px solid #d32f2f;
       display: none;
-      flex-direction: column;
     }
   </style>
 </head>
@@ -89,7 +80,10 @@
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
   </div>
   <button id="startButton">Start Game</button>
-  <div id="gameOverOverlay">Game Over!<br><span id="scoreInfo"></span></div>
+  <div id="gameOverOverlay">
+    Game Over!<br>
+    <span id="scoreInfo"></span>
+  </div>
 
   <script>
     /************************************
@@ -109,8 +103,8 @@
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
-
-    // Ball object.
+    
+    // The ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -118,27 +112,29 @@
       vx: 0,
       vy: 0
     };
-
-    // Tilt values.
+    
+    // Tilt values from device orientation.
     let tilt = { x: 0, y: 0 };
     const accelerationFactor = 0.05;
     const friction = 0.98;
-
+    
     // Game state variables.
-    let currentLevel = 0;  // Displayed as currentLevel+1.
-    let levelData;         // Contains absolute coordinates for finish & walls.
+    let currentLevel = 0;  // Displayed as currentLevel + 1.
+    let levelData;         // Contains absolute coordinates for finish and walls.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
     let score = 0;
-
+    
     /************************************
      * Infinite Level Generation
      ************************************/
     function generateRandomLevel(levelNumber) {
+      // Coin flip to decide start/finish positions.
       let swap = Math.random() < 0.5;
       let start = swap ? { x: 0.8, y: 0.8 } : { x: 0.1, y: 0.1 };
       let finish = swap ? { x: 0.1, y: 0.1 } : { x: 0.8, y: 0.8 };
+      // Add slight randomness.
       start.x += (Math.random() - 0.5) * 0.05;
       start.y += (Math.random() - 0.5) * 0.05;
       finish.x += (Math.random() - 0.5) * 0.05;
@@ -146,6 +142,7 @@
       finish.width = 0.1;
       finish.height = 0.1;
       
+      // Generate random walls.
       let walls = [];
       let numWalls = Math.min(10, 3 + Math.floor(currentLevel / 2));
       let attempts = 0;
@@ -169,7 +166,7 @@
       }
       return { start, finish, walls };
     }
-
+    
     function loadLevel(levelNumber, reset = true) {
       let level = generateRandomLevel(levelNumber);
       levelData = {
@@ -195,7 +192,7 @@
       }
       levelDisplay.textContent = levelNumber + 1;
     }
-
+    
     /************************************
      * Device Orientation Handling
      ************************************/
@@ -203,10 +200,11 @@
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
-    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+    if (window.DeviceOrientationEvent &&
+        typeof DeviceOrientationEvent.requestPermission !== 'function') {
       window.addEventListener('deviceorientation', handleOrientation);
     }
-
+    
     /************************************
      * Collision Detection
      ************************************/
@@ -217,12 +215,11 @@
       let dy = cy - closestY;
       return (dx * dx + dy * dy) < (radius * radius);
     }
-
+    
     /************************************
      * Game Update Logic (Refactored)
      ************************************/
     function update(delta) {
-      // Update velocity and position.
       ball.vx += tilt.x * accelerationFactor;
       ball.vy += tilt.y * accelerationFactor;
       ball.vx *= friction;
@@ -230,7 +227,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check if the ball's center is within the finish area.
+      // Check if the ball's center enters the finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -240,7 +237,7 @@
         return;
       }
       
-      // Only trigger game over if the entire ball is off-screen.
+      // Trigger game over only if the entire ball is off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -249,12 +246,11 @@
         return;
       }
       
-      // Save previous position for wall collision correction.
+      // Check collisions with walls and apply a gentle bounce.
       let prevX = ball.x - ball.vx;
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
-          // Gently bounce: revert to previous position and reverse velocity (damped).
           ball.x = prevX;
           ball.y = prevY;
           ball.vx *= -0.6;
@@ -269,7 +265,7 @@
       }
       timerDisplay.textContent = remainingTime.toFixed(1);
     }
-
+    
     /************************************
      * Rendering the Game
      ************************************/
@@ -288,7 +284,7 @@
       ctx.fill();
       ctx.closePath();
     }
-
+    
     /************************************
      * Main Game Loop
      ************************************/
@@ -301,7 +297,7 @@
       render();
       requestAnimationFrame(gameLoop);
     }
-
+    
     /************************************
      * Game Over Handling (Reset Score & Level)
      ************************************/
@@ -325,7 +321,7 @@
         requestAnimationFrame(gameLoop);
       }, 2000);
     }
-
+    
     /************************************
      * Starting the Game and Requesting Permissions
      ************************************/
@@ -353,7 +349,7 @@
       lastTime = performance.now();
       requestAnimationFrame(gameLoop);
     }
-
+    
     startButton.addEventListener('click', startGame);
   </script>
 </body>
