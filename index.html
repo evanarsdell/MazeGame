@@ -160,7 +160,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Ball controlled by the player.
+    // Ball object.
     let ball = {
       x: 0,
       y: 0,
@@ -169,13 +169,13 @@
       vy: 0
     };
 
-    // Tilt values from device orientation.
+    // Tilt values.
     let tilt = { x: 0, y: 0 };
     const accelerationFactor = 0.05;
     const friction = 0.98;
 
-    // Game state variables.
-    let currentLevel = 0; // 0-indexed (displayed as currentLevel+1)
+    // Game state.
+    let currentLevel = 0;
     let currentLevelData = null;
     let remainingTime = 10.0;
     let lastTime = 0;
@@ -184,7 +184,7 @@
     let highScore = parseInt(localStorage.getItem('mazeHighScore')) || 0;
 
     /************************************
-     * Infinite Level Generation (Random Levels)
+     * Infinite Level Generation
      ************************************/
     function generateRandomLevel(levelNumber) {
       let swap = Math.random() < 0.5;
@@ -242,14 +242,14 @@
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
-    // For non-iOS devices.
+    // For non-iOS devices, add listener immediately.
     if (window.DeviceOrientationEvent && 
         typeof DeviceOrientationEvent.requestPermission !== 'function') {
       window.addEventListener('deviceorientation', handleOrientation);
     }
 
     /************************************
-     * Collision Detection (Circle vs. Rectangle)
+     * Collision Detection
      ************************************/
     function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
       let closestX = Math.max(rx, Math.min(cx, rx + rw));
@@ -376,10 +376,13 @@
     }
 
     /************************************
-     * Starting the Game (with Start Overlay)
+     * Start Button Handler (Single Trigger)
      ************************************/
+    let gameStarted = false;
     function startGame(e) {
       e.preventDefault();
+      if (gameStarted) return;
+      gameStarted = true;
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
