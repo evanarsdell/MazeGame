@@ -2,10 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" 
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
-  <!-- Google Font for a modern look -->
-  <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
+  <!-- Using a Google Font for a modern look -->
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" 
+        rel="stylesheet">
   <style>
     /* Global Reset & Modern Theme (Orange & Blue) */
     * {
@@ -18,7 +20,7 @@
       font-family: 'Montserrat', sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    /* Animated Gradient Background with Parallax */
+    /* Animated Orange-to-Blue Gradient Background */
     body {
       background: linear-gradient(135deg, #ff9800, #2196f3);
       background-size: 200% 200%;
@@ -31,14 +33,14 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas */
+    /* Canvas for Game */
     #gameCanvas {
       display: block;
       background: #fff;
       margin: auto;
       border: 2px solid #ddd;
     }
-    /* Glassmorphic HUD */
+    /* Glassmorphism-style HUD */
     #hud {
       position: absolute;
       top: 20px;
@@ -50,7 +52,7 @@
       font-size: 20px;
       z-index: 10;
     }
-    /* Overlays (Start, Pause, Settings, Game Over) */
+    /* Overlays: Start, Pause, Settings, Game Over */
     #startOverlay,
     #pauseOverlay,
     #settingsOverlay,
@@ -96,7 +98,20 @@
       background: #e68900;
       transform: scale(1.05);
     }
-    /* Game Over Overlay (Sleek & Animated) */
+    /* Pause Overlay */
+    #pauseOverlay {
+      display: none;
+    }
+    /* Settings Overlay: Only Sensitivity and Music Toggle */
+    #settingsOverlay {
+      display: none;
+    }
+    #settingsOverlay p {
+      font-size: 18px;
+      margin: 10px 0;
+      color: #333;
+    }
+    /* Game Over Overlay: Sleek & Modern */
     #gameOverOverlay {
       display: none;
       background: rgba(0,0,0,0.9);
@@ -140,18 +155,6 @@
       cursor: pointer;
       z-index: 15;
     }
-    /* Transition Overlay for Level Transitions */
-    #transitionOverlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255,255,255,0.8);
-      z-index: 25;
-      opacity: 0;
-      pointer-events: none;
-    }
   </style>
 </head>
 <body>
@@ -166,7 +169,7 @@
     <source src="https://www.soundjay.com/button/sounds/button-3.mp3" type="audio/mpeg">
   </audio>
   
-  <!-- Overlays -->
+  <!-- Start Overlay with Instructions -->
   <div id="startOverlay">
     <h1>Maze Runner</h1>
     <p>Hold your phone flat. Tilt slowly to guide the ball into the target.<br>
@@ -174,32 +177,28 @@
     <button id="startButton">Start Game</button>
   </div>
   
+  <!-- Pause Overlay -->
   <div id="pauseOverlay">
     <h1>Paused</h1>
     <button id="resumeButton">Resume</button>
     <button id="settingsButton">Settings</button>
   </div>
   
+  <!-- Settings Overlay -->
   <div id="settingsOverlay">
     <h1>Settings</h1>
-    <p>Volume: <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5"></p>
     <p>Sensitivity: <input type="range" id="sensitivitySlider" min="0.01" max="0.1" step="0.005" value="0.05"></p>
-    <p>Theme: <select id="themeSelect">
-      <option value="orange-blue">Orange & Blue</option>
-      <option value="light">Light Mode</option>
-      <option value="dark">Dark Mode</option>
-    </select></p>
+    <p>Music: <button id="musicToggleButton">Music: On</button></p>
     <button id="closeSettingsButton">Close</button>
   </div>
   
+  <!-- Game Over Overlay -->
   <div id="gameOverOverlay">
     <h1>Game Over!</h1>
     <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
     <div class="score-line">High Score: <span class="highScore" id="highScoreInfo">0</span></div>
     <button id="restartButton">Restart</button>
   </div>
-  
-  <div id="transitionOverlay"></div>
   
   <!-- Game Canvas -->
   <canvas id="gameCanvas"></canvas>
@@ -229,21 +228,19 @@
     const resumeButton = document.getElementById('resumeButton');
     const settingsButton = document.getElementById('settingsButton');
     const settingsOverlay = document.getElementById('settingsOverlay');
-    const volumeSlider = document.getElementById('volumeSlider');
     const sensitivitySlider = document.getElementById('sensitivitySlider');
-    const themeSelect = document.getElementById('themeSelect');
+    const musicToggleButton = document.getElementById('musicToggleButton');
     const closeSettingsButton = document.getElementById('closeSettingsButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
     const highScoreInfo = document.getElementById('highScoreInfo');
     const pauseButton = document.getElementById('pauseButton');
-    const transitionOverlay = document.getElementById('transitionOverlay');
     const bgMusic = document.getElementById('bgMusic');
     const collisionSound = document.getElementById('collisionSound');
     const levelCompleteSound = document.getElementById('levelCompleteSound');
     
-    // Set initial background music volume.
-    bgMusic.volume = volumeSlider.value;
+    let musicOn = true;
+    bgMusic.volume = 0.5;
     
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -266,7 +263,7 @@
     let sensitivity = parseFloat(sensitivitySlider.value);
     const friction = 0.98;
     
-    // Game state.
+    // Game state variables.
     let currentLevel = 0;
     let levelData;
     let remainingTime = 10.0;
@@ -337,7 +334,7 @@
       }
       levelDisplay.textContent = levelNumber + 1;
       scoreDisplay.textContent = score;
-      // Transition fade effect.
+      // Transition overlay (fade in/out effect)
       transitionOverlay.style.opacity = 1;
       transitionOverlay.style.display = 'block';
       setTimeout(() => {
@@ -356,7 +353,6 @@
     function handleOrientation(event) {
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
-      // Parallax effect: adjust body background position based on tilt.
       document.body.style.backgroundPosition = `${50 - tilt.x}% ${50 - tilt.y}%`;
     }
     if (window.DeviceOrientationEvent &&
@@ -376,7 +372,7 @@
     }
     
     /************************************
-     * Particle Effects (for Level Completion)
+     * Particle Effects for Level Completion
      ************************************/
     let particles = [];
     function createParticles() {
@@ -423,7 +419,6 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check finish.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -437,7 +432,6 @@
         return;
       }
       
-      // Game over if entire ball off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -475,15 +469,15 @@
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let finish = levelData.finish;
-      ctx.fillStyle = '#e65100';  // Dark orange target.
+      ctx.fillStyle = '#e65100'; // Dark orange target.
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      ctx.fillStyle = '#444';     // Dark gray obstacles.
+      ctx.fillStyle = '#444';    // Dark gray obstacles.
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.fillStyle = '#2196F3';  // Blue ball.
+      ctx.fillStyle = '#2196F3'; // Blue ball.
       ctx.fill();
       ctx.closePath();
       renderParticles();
@@ -513,7 +507,6 @@
       }
       highScoreInfo.innerText = Math.max(score, storedHighScore);
       scoreInfo.innerText = score;
-      // Animate game over overlay appearance.
       animateOverlay(gameOverOverlay, 0, 1, 500, () => {
         setTimeout(() => {
           animateOverlay(gameOverOverlay, 1, 0, 500, () => {
@@ -570,27 +563,35 @@
     closeSettingsButton.addEventListener('click', () => {
       settingsOverlay.style.display = 'none';
     });
-    volumeSlider.addEventListener('input', () => {
-      bgMusic.volume = volumeSlider.value;
-    });
     sensitivitySlider.addEventListener('input', () => {
-      // Updated on each frame.
+      // sensitivity is updated in the update() function.
     });
-    themeSelect.addEventListener('change', () => {
-      let theme = themeSelect.value;
-      if (theme === 'orange-blue') {
-        document.body.style.background = 'linear-gradient(135deg, #ff9800, #2196f3)';
-      } else if (theme === 'light') {
-        document.body.style.background = 'linear-gradient(135deg, #f6f6f6, #e0e0e0)';
-      } else if (theme === 'dark') {
-        document.body.style.background = 'linear-gradient(135deg, #333, #555)';
+    musicToggleButton.addEventListener('click', () => {
+      musicOn = !musicOn;
+      if (musicOn) {
+        bgMusic.play();
+        musicToggleButton.innerText = 'Music: On';
+      } else {
+        bgMusic.pause();
+        musicToggleButton.innerText = 'Music: Off';
       }
-      document.body.style.backgroundSize = '200% 200%';
-      document.body.style.animation = 'bgAnimation 10s ease infinite';
     });
     
     /************************************
-     * Device Orientation Handling & iOS Permission
+     * Device Orientation Handling & Parallax
+     ************************************/
+    function handleOrientation(event) {
+      tilt.x = event.gamma || 0;
+      tilt.y = event.beta || 0;
+      document.body.style.backgroundPosition = `${50 - tilt.x}% ${50 - tilt.y}%`;
+    }
+    if (window.DeviceOrientationEvent &&
+        typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+    
+    /************************************
+     * Starting the Game and Requesting Permissions
      ************************************/
     function requestDeviceMotionPermission() {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
@@ -609,14 +610,13 @@
       }
     }
     
-    /************************************
-     * Starting the Game
-     ************************************/
     function startGame() {
       startOverlay.style.display = 'none';
       requestDeviceMotionPermission();
-      bgMusic.volume = volumeSlider.value;
-      bgMusic.play().catch(e => {});
+      bgMusic.volume = 0.5;
+      if(musicOn) {
+        bgMusic.play().catch(e => {});
+      }
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
