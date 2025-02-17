@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Global Reset & Modern Base */
+    /* Global Reset & Theme (Orange & Blue) */
     * {
       margin: 0;
       padding: 0;
@@ -13,36 +13,38 @@
     }
     html, body {
       height: 100%;
-      font-family: 'Roboto', sans-serif;
-      -webkit-font-smoothing: antialiased;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    /* Animated Gradient Background */
     body {
-      background: linear-gradient(135deg, #8EC5FC, #E0C3FC);
-      background-size: 400% 400%;
-      animation: gradientBG 15s ease infinite;
-      color: #333;
+      /* Orange-to-blue animated gradient background */
+      background: linear-gradient(135deg, #ff9800, #2196f3);
+      background-size: 200% 200%;
+      animation: bgAnimation 10s ease infinite;
+      color: #fff;
     }
-    @keyframes gradientBG {
+    @keyframes bgAnimation {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas for Game */
+    /* Canvas for game drawing */
     #gameCanvas {
       display: block;
       background: #fff;
+      margin: auto;
+      border: 2px solid #ddd;
     }
-    /* Glassmorphism-style HUD */
+    /* Clean, semi-transparent HUD */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
-      padding: 12px 18px;
-      background: rgba(255, 255, 255, 0.75);
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      padding: 10px 15px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 8px;
       font-size: 20px;
+      font-weight: 500;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
       z-index: 10;
     }
     /* Modern Flat Start Button */
@@ -52,18 +54,18 @@
       left: 50%;
       transform: translate(-50%, -50%);
       padding: 18px 28px;
-      font-size: 22px;
-      background: #4CAF50;
-      color: #fff;
+      font-size: 24px;
+      background: #ff9800;
       border: none;
       border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      color: #fff;
       cursor: pointer;
-      z-index: 20;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
       transition: background 0.3s ease, transform 0.2s ease;
+      z-index: 20;
     }
     #startButton:hover {
-      background: #43A047;
+      background: #e68900;
       transform: translate(-50%, -50%) scale(1.05);
     }
     /* Sleek Game Over Overlay */
@@ -73,7 +75,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(255,255,255,0.95);
+      background: rgba(0, 0, 0, 0.9);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -81,36 +83,39 @@
       text-align: center;
       padding: 40px;
       z-index: 30;
-      border-top: 6px solid #E91E63;
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
-      font-size: 36px;
-      color: #E91E63;
       display: none;
     }
-    #gameOverOverlay span {
-      font-size: 24px;
-      margin-top: 20px;
+    #gameOverOverlay h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      color: #ff9800;
+    }
+    #gameOverOverlay .score-line {
+      font-size: 28px;
+      margin: 10px 0;
+    }
+    #gameOverOverlay .score-line .score {
+      color: #ff9800;
+      font-weight: bold;
+    }
+    #gameOverOverlay .score-line .highScore {
+      color: #2196f3;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  
-  <!-- Heads-Up Display -->
   <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
   </div>
-  
-  <!-- Start Button -->
   <button id="startButton">Start Game</button>
-  
-  <!-- Game Over Overlay -->
   <div id="gameOverOverlay">
-    Game Over!
-    <span id="scoreInfo"></span>
+    <h1>Game Over!</h1>
+    <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
+    <div class="score-line">High Score: <span class="highScore" id="highScoreInfo">0</span></div>
   </div>
-  
   <script>
     /************************************
      * Global Variables and Setup
@@ -122,6 +127,7 @@
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
+    const highScoreInfo = document.getElementById('highScoreInfo');
     
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -130,7 +136,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // Ball controlled by the player.
+    // The ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -146,7 +152,7 @@
     
     // Game state variables.
     let currentLevel = 0;  // Displayed as currentLevel+1.
-    let levelData;         // Contains absolute coordinates for finish and walls.
+    let levelData;         // Contains absolute positions for finish and walls.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -250,7 +256,6 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check if the ball's center enters the finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -260,7 +265,6 @@
         return;
       }
       
-      // Only trigger game over if the entire ball is off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -269,7 +273,6 @@
         return;
       }
       
-      // Collision with walls: gentle bounce.
       let prevX = ball.x - ball.vx;
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
@@ -297,7 +300,6 @@
       let finish = levelData.finish;
       ctx.fillStyle = 'green';
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      // Obstacles now in dark gray for contrast.
       ctx.fillStyle = '#444';
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
@@ -331,7 +333,8 @@
       if (score > storedHighScore) {
         localStorage.setItem('mazeHighScore', score);
       }
-      scoreInfo.innerText = `Score: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
+      highScoreInfo.innerText = Math.max(score, storedHighScore);
+      scoreInfo.innerText = score;
       gameOverOverlay.style.display = 'flex';
       setTimeout(() => {
         score = 0;
