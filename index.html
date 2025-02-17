@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>Maze Runner</title>
+  <title>Maze Runner Extreme</title>
   <style>
     /* Reset & Base Styles */
     html, body {
@@ -29,11 +29,9 @@
       padding: 10px 15px;
       border-radius: 5px;
       font-size: 1.1em;
+      line-height: 1.5;
     }
-    .hud div {
-      margin-bottom: 5px;
-    }
-    /* Overlay styles for Start, Level Complete, and Game Over screens */
+    /* Overlay Styles */
     .overlay {
       position: absolute;
       top: 0;
@@ -60,6 +58,7 @@
       font-size: 1.2em;
       margin: 10px 0;
       text-align: center;
+      max-width: 90%;
     }
     .overlay button {
       padding: 10px 20px;
@@ -84,11 +83,12 @@
     <div>High Score: <span id="highScoreDisplay">0</span></div>
   </div>
 
-  <!-- Start Screen Overlay -->
+  <!-- Start/Instruction Overlay -->
   <div id="startOverlay" class="overlay">
-    <h1>Maze Runner</h1>
-    <p>Control the ball by tilting your device.</p>
-    <p>Complete each level before time runs out.</p>
+    <h1>Maze Runner Extreme</h1>
+    <p>Welcome! Tilt your device to guide the red ball through the maze.</p>
+    <p><strong>Caution: Watch out for the edges!</strong> If the ball rolls off the screen, it’s game over.</p>
+    <p>Complete each level before time runs out. Your score increases with every level cleared.</p>
     <button id="startButton">Start Game</button>
   </div>
 
@@ -101,6 +101,7 @@
   <div id="gameOverOverlay" class="overlay hidden">
     <h1>Game Over!</h1>
     <p>Your Score: <span id="finalScore">0</span></p>
+    <p>High Score: <span id="finalHighScore">0</span></p>
     <button id="restartButton">Restart</button>
   </div>
 
@@ -119,6 +120,7 @@
     const levelCompleteOverlay = document.getElementById('levelCompleteOverlay');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const finalScoreDisplay = document.getElementById('finalScore');
+    const finalHighScoreDisplay = document.getElementById('finalHighScore');
     const restartButton = document.getElementById('restartButton');
 
     let canvasWidth, canvasHeight;
@@ -127,7 +129,7 @@
       canvasHeight = window.innerHeight;
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
-      // Recalculate current level layout without resetting ball position.
+      // If a level is loaded, recalc absolute positions.
       if (currentLevelData) loadLevel(currentLevelIndex, false);
     }
     window.addEventListener('resize', resizeCanvas);
@@ -153,7 +155,7 @@
      * (Coordinates are fractions of canvas width/height)
      ************************************/
     levels = [
-      // Level 1: Simple vertical wall with gap
+      // Level 1
       {
         start: { x: 0.1, y: 0.1 },
         finish: { x: 0.8, y: 0.8, width: 0.1, height: 0.1 },
@@ -162,7 +164,7 @@
           { x: 0.5, y: 0.6, width: 0.02, height: 0.4 }
         ]
       },
-      // Level 2: Wall with horizontal obstacle
+      // Level 2
       {
         start: { x: 0.1, y: 0.1 },
         finish: { x: 0.8, y: 0.8, width: 0.1, height: 0.1 },
@@ -172,7 +174,7 @@
           { x: 0.2, y: 0.5, width: 0.3, height: 0.02 }
         ]
       },
-      // Level 3: Maze with multiple walls
+      // Level 3
       {
         start: { x: 0.1, y: 0.9 },
         finish: { x: 0.8, y: 0.1, width: 0.1, height: 0.1 },
@@ -183,7 +185,7 @@
           { x: 0.5, y: 0.3, width: 0.2, height: 0.02 }
         ]
       },
-      // Level 4: Two vertical walls with gaps
+      // Level 4
       {
         start: { x: 0.05, y: 0.5 },
         finish: { x: 0.9, y: 0.5, width: 0.07, height: 0.07 },
@@ -194,7 +196,7 @@
           { x: 0.6, y: 0.7, width: 0.02, height: 0.3 }
         ]
       },
-      // Level 5: Central labyrinth
+      // Level 5
       {
         start: { x: 0.1, y: 0.9 },
         finish: { x: 0.8, y: 0.1, width: 0.08, height: 0.08 },
@@ -207,7 +209,7 @@
           { x: 0.5, y: 0.5, width: 0.02, height: 0.3 }
         ]
       },
-      // Level 6: Mixed horizontal and vertical walls
+      // Level 6
       {
         start: { x: 0.05, y: 0.05 },
         finish: { x: 0.9, y: 0.9, width: 0.07, height: 0.07 },
@@ -218,7 +220,7 @@
           { x: 0.1, y: 0.3, width: 0.2, height: 0.02 }
         ]
       },
-      // Level 7: Inverted start/finish with multiple obstacles
+      // Level 7
       {
         start: { x: 0.9, y: 0.9 },
         finish: { x: 0.05, y: 0.05, width: 0.07, height: 0.07 },
@@ -229,14 +231,157 @@
           { x: 0.2, y: 0.3, width: 0.4, height: 0.02 },
           { x: 0.2, y: 0.3, width: 0.02, height: 0.2 }
         ]
+      },
+      // Level 8
+      {
+        start: { x: 0.1, y: 0.1 },
+        finish: { x: 0.8, y: 0.8, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0,   y: 0.5, width: 0.4,  height: 0.02 },
+          { x: 0.6, y: 0.5, width: 0.4,  height: 0.02 }
+        ]
+      },
+      // Level 9
+      {
+        start: { x: 0.15, y: 0.15 },
+        finish: { x: 0.8,  y: 0.8, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.2,  y: 0.2,  width: 0.6,  height: 0.02 },
+          { x: 0.2,  y: 0.2,  width: 0.02, height: 0.6 },
+          { x: 0.2,  y: 0.78, width: 0.6,  height: 0.02 },
+          { x: 0.78, y: 0.2,  width: 0.02, height: 0.6 },
+          { x: 0.35, y: 0.35, width: 0.3,  height: 0.02 },
+          { x: 0.35, y: 0.35, width: 0.02, height: 0.3 }
+        ]
+      },
+      // Level 10
+      {
+        start: { x: 0.1, y: 0.9 },
+        finish: { x: 0.9, y: 0.1, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.2, y: 0.8, width: 0.02, height: 0.2 },
+          { x: 0.4, y: 0,   width: 0.02, height: 0.6 },
+          { x: 0.6, y: 0.4, width: 0.02, height: 0.6 },
+          { x: 0.8, y: 0,   width: 0.02, height: 0.5 }
+        ]
+      },
+      // Level 11
+      {
+        start: { x: 0.05, y: 0.05 },
+        finish: { x: 0.9,  y: 0.9, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.2, y: 0,   width: 0.02, height: 0.8 },
+          { x: 0.2, y: 0.8, width: 0.6,  height: 0.02 },
+          { x: 0.8, y: 0.2, width: 0.02, height: 0.8 }
+        ]
+      },
+      // Level 12
+      {
+        start: { x: 0.1, y: 0.5 },
+        finish: { x: 0.9, y: 0.5, width: 0.08, height: 0.08 },
+        walls: [
+          { x: 0.45, y: 0,   width: 0.02, height: 0.7 },
+          { x: 0.1,  y: 0.45, width: 0.7,  height: 0.02 },
+          { x: 0.45, y: 0.7,  width: 0.02, height: 0.3 }
+        ]
+      },
+      // Level 13
+      {
+        start: { x: 0.1, y: 0.9 },
+        finish: { x: 0.9, y: 0.1, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.3, y: 0.7, width: 0.02, height: 0.2 },
+          { x: 0.5, y: 0.5, width: 0.02, height: 0.4 },
+          { x: 0.7, y: 0.3, width: 0.02, height: 0.3 },
+          { x: 0.3, y: 0.3, width: 0.4,  height: 0.02 },
+          { x: 0.3, y: 0.6, width: 0.4,  height: 0.02 }
+        ]
+      },
+      // Level 14
+      {
+        start: { x: 0.9, y: 0.1 },
+        finish: { x: 0.1, y: 0.9, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.5, y: 0,   width: 0.02, height: 0.5 },
+          { x: 0.5, y: 0.5, width: 0.02, height: 0.5 },
+          { x: 0.2, y: 0.5, width: 0.3,  height: 0.02 }
+        ]
+      },
+      // Level 15
+      {
+        start: { x: 0.1, y: 0.5 },
+        finish: { x: 0.9, y: 0.5, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.3, y: 0.3, width: 0.02, height: 0.4 },
+          { x: 0.5, y: 0.2, width: 0.02, height: 0.5 },
+          { x: 0.7, y: 0.3, width: 0.02, height: 0.4 }
+        ]
+      },
+      // Level 16
+      {
+        start: { x: 0.05, y: 0.5 },
+        finish: { x: 0.95, y: 0.5, width: 0.08, height: 0.08 },
+        walls: [
+          { x: 0.3, y: 0,   width: 0.02, height: 0.4 },
+          { x: 0.3, y: 0.6, width: 0.02, height: 0.4 },
+          { x: 0.6, y: 0,   width: 0.02, height: 0.4 },
+          { x: 0.6, y: 0.6, width: 0.02, height: 0.4 }
+        ]
+      },
+      // Level 17
+      {
+        start: { x: 0.5, y: 0.9 },
+        finish: { x: 0.5, y: 0.1, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.4, y: 0.7, width: 0.02, height: 0.2 },
+          { x: 0.6, y: 0.5, width: 0.02, height: 0.2 },
+          { x: 0.4, y: 0.3, width: 0.02, height: 0.2 }
+        ]
+      },
+      // Level 18
+      {
+        start: { x: 0.1, y: 0.1 },
+        finish: { x: 0.9, y: 0.9, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.4, y: 0.4, width: 0.2, height: 0.02 },
+          { x: 0.4, y: 0.4, width: 0.02, height: 0.2 },
+          { x: 0.4, y: 0.58, width: 0.2, height: 0.02 },
+          { x: 0.58, y: 0.4, width: 0.02, height: 0.2 }
+        ]
+      },
+      // Level 19
+      {
+        start: { x: 0.1, y: 0.1 },
+        finish: { x: 0.9, y: 0.9, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.3, y: 0.2, width: 0.02, height: 0.3 },
+          { x: 0.5, y: 0.1, width: 0.02, height: 0.4 },
+          { x: 0.7, y: 0.3, width: 0.02, height: 0.3 },
+          { x: 0.3, y: 0.6, width: 0.4,  height: 0.02 },
+          { x: 0.6, y: 0.7, width: 0.02, height: 0.2 }
+        ]
+      },
+      // Level 20 (Final Challenge)
+      {
+        start: { x: 0.05, y: 0.95 },
+        finish: { x: 0.95, y: 0.05, width: 0.1, height: 0.1 },
+        walls: [
+          { x: 0.2, y: 0.8, width: 0.02, height: 0.15 },
+          { x: 0.2, y: 0.3, width: 0.02, height: 0.15 },
+          { x: 0.4, y: 0.5, width: 0.02, height: 0.3 },
+          { x: 0.6, y: 0.2, width: 0.02, height: 0.5 },
+          { x: 0.8, y: 0.5, width: 0.02, height: 0.4 },
+          { x: 0.4, y: 0.2, width: 0.4,  height: 0.02 },
+          { x: 0.4, y: 0.7, width: 0.4,  height: 0.02 }
+        ]
       }
     ];
 
     /************************************
      * Level & Layout Management
      ************************************/
-    // loadLevel recalculates the absolute positions from relative coordinates.
-    // If reset is true, it resets the ball to the level's starting point and resets the timer.
+    // loadLevel converts relative coordinates to absolute values.
+    // If reset is true, it resets the ball’s position and timer.
     function loadLevel(index, reset = true) {
       const lvl = levels[index];
       if (reset) {
@@ -268,7 +413,7 @@
      * Device Orientation Handling
      ************************************/
     function handleOrientation(event) {
-      // event.gamma (left/right tilt), event.beta (front/back tilt)
+      // event.gamma: left/right tilt; event.beta: front/back tilt.
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
@@ -288,7 +433,7 @@
      * Game Update & Render Logic
      ************************************/
     function update(delta) {
-      // Update ball velocity based on tilt and apply friction
+      // Update ball velocity based on tilt and apply friction.
       ball.vx += tilt.x * accelerationFactor;
       ball.vy += tilt.y * accelerationFactor;
       ball.vx *= friction;
@@ -296,12 +441,15 @@
       const prevX = ball.x, prevY = ball.y;
       ball.x += ball.vx;
       ball.y += ball.vy;
-      // Boundary checks
-      if (ball.x - ball.radius < 0) { ball.x = ball.radius; ball.vx = 0; }
-      if (ball.x + ball.radius > canvasWidth) { ball.x = canvasWidth - ball.radius; ball.vx = 0; }
-      if (ball.y - ball.radius < 0) { ball.y = ball.radius; ball.vy = 0; }
-      if (ball.y + ball.radius > canvasHeight) { ball.y = canvasHeight - ball.radius; ball.vy = 0; }
-      // Check collisions with each wall
+
+      // If the ball rolls off the screen (any part out-of-bound), it's game over.
+      if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvasWidth ||
+          ball.y - ball.radius < 0 || ball.y + ball.radius > canvasHeight) {
+        gameOver(false);
+        return;
+      }
+
+      // Collision detection with walls.
       for (let wall of currentLevelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
           ball.x = prevX;
@@ -311,20 +459,20 @@
           break;
         }
       }
-      // Check if ball reaches finish area
+
+      // Check if ball reaches the finish area.
       const f = currentLevelData.finish;
       if (ball.x > f.x && ball.x < f.x + f.width &&
           ball.y > f.y && ball.y < f.y + f.height) {
-        // Mark level complete
         gameState = 'levelComplete';
         score += 1;
         levelCompleteOverlay.classList.remove('hidden');
-        // After a short pause, load the next level (or finish the game)
+        // After a short pause, load the next level or finish the game.
         setTimeout(() => {
           levelCompleteOverlay.classList.add('hidden');
           currentLevelIndex++;
           if (currentLevelIndex >= levels.length) {
-            // If all levels are complete, consider it a win and end the game.
+            // All levels complete: end the game.
             gameOver(true);
           } else {
             loadLevel(currentLevelIndex);
@@ -334,7 +482,8 @@
           }
         }, 1000);
       }
-      // Update countdown timer
+
+      // Update countdown timer.
       remainingTime -= delta / 1000;
       if (remainingTime <= 0) {
         gameOver(false);
@@ -344,16 +493,16 @@
 
     function render() {
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      // Draw finish area
+      // Draw finish area.
       const f = currentLevelData.finish;
       ctx.fillStyle = 'lime';
       ctx.fillRect(f.x, f.y, f.width, f.height);
-      // Draw walls
+      // Draw walls.
       ctx.fillStyle = 'white';
       for (let wall of currentLevelData.walls) {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       }
-      // Draw the ball
+      // Draw the ball.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = 'red';
@@ -361,7 +510,7 @@
       ctx.closePath();
     }
 
-    // Main Game Loop using requestAnimationFrame
+    // Main Game Loop using requestAnimationFrame.
     function gameLoop(timestamp) {
       if (gameState !== 'playing') return;
       if (!lastTime) lastTime = timestamp;
@@ -378,12 +527,12 @@
     function gameOver(win) {
       gameState = 'gameOver';
       finalScoreDisplay.textContent = score;
-      // Update high score if needed
+      // Update high score if necessary.
       if (score > highScore) {
         highScore = score;
         localStorage.setItem('mazeHighScore', highScore);
-        highScoreDisplay.textContent = highScore;
       }
+      finalHighScoreDisplay.textContent = highScore;
       gameOverOverlay.classList.remove('hidden');
     }
 
@@ -404,7 +553,7 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // Request device orientation permission (for iOS 13+)
+    // Request device orientation permission (for iOS 13+).
     function startGame() {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -424,7 +573,7 @@
       }
     }
 
-    // Event Listeners for Start & Restart Buttons
+    // Event Listeners for Start & Restart Buttons.
     startButton.addEventListener('click', () => {
       startOverlay.classList.add('hidden');
       startGame();
