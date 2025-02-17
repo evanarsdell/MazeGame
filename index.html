@@ -2,409 +2,178 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>Maze Runner Extreme</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Reset & Base Styles */
+    /* Basic reset and styling */
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: #111;
-      font-family: Arial, sans-serif;
-      color: #eee;
+      background: #000;
+      color: #fff;
+      font-family: sans-serif;
     }
-    canvas {
+    /* The canvas where the game is drawn */
+    #gameCanvas {
       display: block;
       background: #222;
-      border: 2px solid #444;
     }
-    /* HUD (Heads-Up Display) */
-    .hud {
+    /* HUD to display level and timer */
+    #hud {
       position: absolute;
       top: 10px;
       left: 10px;
       z-index: 10;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px 15px;
-      border-radius: 5px;
-      font-size: 1.1em;
+      font-size: 20px;
       line-height: 1.5;
     }
-    /* Instruction Overlay in the Corner */
-    .instruction-overlay {
+    /* Start button styling */
+    #startButton {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 30px;
+      font-size: 20px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
       z-index: 20;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 8px 12px;
-      border-radius: 5px;
-      font-size: 0.9em;
-      line-height: 1.3;
-      transition: opacity 0.5s ease;
     }
-    /* Overlay Styles for Game Over */
-    .overlay {
+    /* Game Over overlay */
+    #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.8);
+      color: red;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      transition: opacity 0.5s ease;
-      z-index: 100;
-    }
-    .hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    .overlay h1 {
-      font-size: 2.5em;
-      margin-bottom: 20px;
-    }
-    .overlay p {
-      font-size: 1.2em;
-      margin: 10px 0;
-      text-align: center;
-      max-width: 90%;
-    }
-    .overlay button {
-      padding: 10px 20px;
-      font-size: 1.2em;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      background: #28a745;
-      color: #fff;
-      margin-top: 20px;
+      font-size: 40px;
+      z-index: 30;
+      display: none;
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-
-  <!-- Heads-Up Display -->
-  <div class="hud">
+  <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
-    <div>Score: <span id="scoreDisplay">0</span></div>
-    <div>High Score: <span id="highScoreDisplay">0</span></div>
   </div>
-
-  <!-- Instruction Overlay (appears in the top-right corner) -->
-  <div id="instructionOverlay" class="instruction-overlay"></div>
-
-  <!-- Game Over Overlay -->
-  <div id="gameOverOverlay" class="overlay hidden">
-    <h1>Game Over!</h1>
-    <p>Your Score: <span id="finalScore">0</span></p>
-    <p>High Score: <span id="finalHighScore">0</span></p>
-    <button id="restartButton">Restart</button>
-  </div>
+  <button id="startButton">Start Game</button>
+  <div id="gameOverOverlay">Game Over!</div>
 
   <script>
     /************************************
-     * Global Variables & Setup
+     * Global Variables and Setup
      ************************************/
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const levelDisplay = document.getElementById('levelDisplay');
     const timerDisplay = document.getElementById('timerDisplay');
-    const scoreDisplay = document.getElementById('scoreDisplay');
-    const highScoreDisplay = document.getElementById('highScoreDisplay');
-    const instructionOverlay = document.getElementById('instructionOverlay');
+    const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
-    const finalScoreDisplay = document.getElementById('finalScore');
-    const finalHighScoreDisplay = document.getElementById('finalHighScore');
-    const restartButton = document.getElementById('restartButton');
 
-    let canvasWidth, canvasHeight;
+    // Resize the canvas to fill the window
     function resizeCanvas() {
-      canvasWidth = window.innerWidth;
-      canvasHeight = window.innerHeight;
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      // If a level is loaded, recalc absolute positions.
-      if (currentLevelData) loadLevel(currentLevelIndex, false);
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Game state variables
-    let gameState = 'playing'; // 'playing', 'levelComplete', 'gameOver'
-    let currentLevelIndex = 0;
-    let levels = [];          // Array of level definitions (using relative coordinates)
-    let currentLevelData = null;  // Absolute positions for finish area & walls
-    let ball = { x: 0, y: 0, radius: 15, vx: 0, vy: 0 };
+    // The ball controlled by the player
+    let ball = {
+      x: 0,
+      y: 0,
+      radius: 15,
+      vx: 0,
+      vy: 0
+    };
+
+    // Tilt values from the device orientation event
     let tilt = { x: 0, y: 0 };
+
+    // Parameters for motion sensitivity and friction
     const accelerationFactor = 0.05;
     const friction = 0.98;
-    let remainingTime = 10.0;
-    let lastTime = 0;
-    let score = 0;
-    let highScore = parseInt(localStorage.getItem('mazeHighScore')) || 0;
-    highScoreDisplay.textContent = highScore;
 
-    /************************************
-     * Level Definitions (Relative Coordinates)
-     * (Coordinates are fractions of canvas width/height)
-     ************************************/
-    levels = [
-      // Level 1
+    // Levels definition: coordinates are relative (fractions) to canvas dimensions.
+    // Each level has a start position, a finish area, and walls defining the maze.
+    let levels = [
       {
         start: { x: 0.1, y: 0.1 },
         finish: { x: 0.8, y: 0.8, width: 0.1, height: 0.1 },
         walls: [
-          { x: 0.5, y: 0, width: 0.02, height: 0.4 },
-          { x: 0.5, y: 0.6, width: 0.02, height: 0.4 }
+          // Vertical wall with a gap in the middle (two parts)
+          { x: 0.5, y: 0,    width: 0.02, height: 0.4 },
+          { x: 0.5, y: 0.6,  width: 0.02, height: 0.4 }
         ]
       },
-      // Level 2
       {
         start: { x: 0.1, y: 0.1 },
         finish: { x: 0.8, y: 0.8, width: 0.1, height: 0.1 },
         walls: [
-          { x: 0.4, y: 0, width: 0.02, height: 0.3 },
-          { x: 0.4, y: 0.5, width: 0.02, height: 0.5 },
-          { x: 0.2, y: 0.5, width: 0.3, height: 0.02 }
+          // Vertical wall with a gap plus a horizontal barrier
+          { x: 0.4, y: 0,    width: 0.02, height: 0.3 },
+          { x: 0.4, y: 0.5,  width: 0.02, height: 0.5 },
+          { x: 0.2, y: 0.5,  width: 0.3,  height: 0.02 }
         ]
       },
-      // Level 3
       {
         start: { x: 0.1, y: 0.9 },
         finish: { x: 0.8, y: 0.1, width: 0.1, height: 0.1 },
         walls: [
-          { x: 0.3, y: 0, width: 0.02, height: 0.7 },
-          { x: 0.3, y: 0.8, width: 0.4, height: 0.02 },
+          // More complex layout with several walls
+          { x: 0.3, y: 0,   width: 0.02, height: 0.7 },
+          { x: 0.3, y: 0.8, width: 0.4,  height: 0.02 },
           { x: 0.7, y: 0.3, width: 0.02, height: 0.5 },
-          { x: 0.5, y: 0.3, width: 0.2, height: 0.02 }
-        ]
-      },
-      // Level 4
-      {
-        start: { x: 0.05, y: 0.5 },
-        finish: { x: 0.9, y: 0.5, width: 0.07, height: 0.07 },
-        walls: [
-          { x: 0.3, y: 0, width: 0.02, height: 0.4 },
-          { x: 0.3, y: 0.6, width: 0.02, height: 0.4 },
-          { x: 0.6, y: 0, width: 0.02, height: 0.6 },
-          { x: 0.6, y: 0.7, width: 0.02, height: 0.3 }
-        ]
-      },
-      // Level 5
-      {
-        start: { x: 0.1, y: 0.9 },
-        finish: { x: 0.8, y: 0.1, width: 0.08, height: 0.08 },
-        walls: [
-          { x: 0.2, y: 0.2, width: 0.02, height: 0.6 },
-          { x: 0.2, y: 0.2, width: 0.6, height: 0.02 },
-          { x: 0.8, y: 0.2, width: 0.02, height: 0.6 },
-          { x: 0.2, y: 0.8, width: 0.6, height: 0.02 },
-          { x: 0.5, y: 0.2, width: 0.02, height: 0.3 },
-          { x: 0.5, y: 0.5, width: 0.02, height: 0.3 }
-        ]
-      },
-      // Level 6
-      {
-        start: { x: 0.05, y: 0.05 },
-        finish: { x: 0.9, y: 0.9, width: 0.07, height: 0.07 },
-        walls: [
-          { x: 0.3, y: 0, width: 0.02, height: 0.7 },
-          { x: 0.6, y: 0.3, width: 0.02, height: 0.7 },
-          { x: 0.3, y: 0.7, width: 0.32, height: 0.02 },
-          { x: 0.1, y: 0.3, width: 0.2, height: 0.02 }
-        ]
-      },
-      // Level 7
-      {
-        start: { x: 0.9, y: 0.9 },
-        finish: { x: 0.05, y: 0.05, width: 0.07, height: 0.07 },
-        walls: [
-          { x: 0.5, y: 0, width: 0.02, height: 0.5 },
-          { x: 0.5, y: 0.6, width: 0.02, height: 0.4 },
-          { x: 0.2, y: 0.5, width: 0.4, height: 0.02 },
-          { x: 0.2, y: 0.3, width: 0.4, height: 0.02 },
-          { x: 0.2, y: 0.3, width: 0.02, height: 0.2 }
-        ]
-      },
-      // Level 8
-      {
-        start: { x: 0.1, y: 0.1 },
-        finish: { x: 0.8, y: 0.8, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0,   y: 0.5, width: 0.4,  height: 0.02 },
-          { x: 0.6, y: 0.5, width: 0.4,  height: 0.02 }
-        ]
-      },
-      // Level 9
-      {
-        start: { x: 0.15, y: 0.15 },
-        finish: { x: 0.8,  y: 0.8, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.2,  y: 0.2,  width: 0.6,  height: 0.02 },
-          { x: 0.2,  y: 0.2,  width: 0.02, height: 0.6 },
-          { x: 0.2,  y: 0.78, width: 0.6,  height: 0.02 },
-          { x: 0.78, y: 0.2,  width: 0.02, height: 0.6 },
-          { x: 0.35, y: 0.35, width: 0.3,  height: 0.02 },
-          { x: 0.35, y: 0.35, width: 0.02, height: 0.3 }
-        ]
-      },
-      // Level 10
-      {
-        start: { x: 0.1, y: 0.9 },
-        finish: { x: 0.9, y: 0.1, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.2, y: 0.8, width: 0.02, height: 0.2 },
-          { x: 0.4, y: 0,   width: 0.02, height: 0.6 },
-          { x: 0.6, y: 0.4, width: 0.02, height: 0.6 },
-          { x: 0.8, y: 0,   width: 0.02, height: 0.5 }
-        ]
-      },
-      // Level 11
-      {
-        start: { x: 0.05, y: 0.05 },
-        finish: { x: 0.9,  y: 0.9, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.2, y: 0,   width: 0.02, height: 0.8 },
-          { x: 0.2, y: 0.8, width: 0.6,  height: 0.02 },
-          { x: 0.8, y: 0.2, width: 0.02, height: 0.8 }
-        ]
-      },
-      // Level 12
-      {
-        start: { x: 0.1, y: 0.5 },
-        finish: { x: 0.9, y: 0.5, width: 0.08, height: 0.08 },
-        walls: [
-          { x: 0.45, y: 0,   width: 0.02, height: 0.7 },
-          { x: 0.1,  y: 0.45, width: 0.7,  height: 0.02 },
-          { x: 0.45, y: 0.7,  width: 0.02, height: 0.3 }
-        ]
-      },
-      // Level 13
-      {
-        start: { x: 0.1, y: 0.9 },
-        finish: { x: 0.9, y: 0.1, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.3, y: 0.7, width: 0.02, height: 0.2 },
-          { x: 0.5, y: 0.5, width: 0.02, height: 0.4 },
-          { x: 0.7, y: 0.3, width: 0.02, height: 0.3 },
-          { x: 0.3, y: 0.3, width: 0.4,  height: 0.02 },
-          { x: 0.3, y: 0.6, width: 0.4,  height: 0.02 }
-        ]
-      },
-      // Level 14
-      {
-        start: { x: 0.9, y: 0.1 },
-        finish: { x: 0.1, y: 0.9, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.5, y: 0,   width: 0.02, height: 0.5 },
-          { x: 0.5, y: 0.5, width: 0.02, height: 0.5 },
-          { x: 0.2, y: 0.5, width: 0.3,  height: 0.02 }
-        ]
-      },
-      // Level 15
-      {
-        start: { x: 0.1, y: 0.5 },
-        finish: { x: 0.9, y: 0.5, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.3, y: 0.3, width: 0.02, height: 0.4 },
-          { x: 0.5, y: 0.2, width: 0.02, height: 0.5 },
-          { x: 0.7, y: 0.3, width: 0.02, height: 0.4 }
-        ]
-      },
-      // Level 16
-      {
-        start: { x: 0.05, y: 0.5 },
-        finish: { x: 0.95, y: 0.5, width: 0.08, height: 0.08 },
-        walls: [
-          { x: 0.3, y: 0,   width: 0.02, height: 0.4 },
-          { x: 0.3, y: 0.6, width: 0.02, height: 0.4 },
-          { x: 0.6, y: 0,   width: 0.02, height: 0.4 },
-          { x: 0.6, y: 0.6, width: 0.02, height: 0.4 }
-        ]
-      },
-      // Level 17
-      {
-        start: { x: 0.5, y: 0.9 },
-        finish: { x: 0.5, y: 0.1, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.4, y: 0.7, width: 0.02, height: 0.2 },
-          { x: 0.6, y: 0.5, width: 0.02, height: 0.2 },
-          { x: 0.4, y: 0.3, width: 0.02, height: 0.2 }
-        ]
-      },
-      // Level 18
-      {
-        start: { x: 0.1, y: 0.1 },
-        finish: { x: 0.9, y: 0.9, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.4, y: 0.4, width: 0.2, height: 0.02 },
-          { x: 0.4, y: 0.4, width: 0.02, height: 0.2 },
-          { x: 0.4, y: 0.58, width: 0.2, height: 0.02 },
-          { x: 0.58, y: 0.4, width: 0.02, height: 0.2 }
-        ]
-      },
-      // Level 19
-      {
-        start: { x: 0.1, y: 0.1 },
-        finish: { x: 0.9, y: 0.9, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.3, y: 0.2, width: 0.02, height: 0.3 },
-          { x: 0.5, y: 0.1, width: 0.02, height: 0.4 },
-          { x: 0.7, y: 0.3, width: 0.02, height: 0.3 },
-          { x: 0.3, y: 0.6, width: 0.4,  height: 0.02 },
-          { x: 0.6, y: 0.7, width: 0.02, height: 0.2 }
-        ]
-      },
-      // Level 20 (Final Challenge)
-      {
-        start: { x: 0.05, y: 0.95 },
-        finish: { x: 0.95, y: 0.05, width: 0.1, height: 0.1 },
-        walls: [
-          { x: 0.2, y: 0.8, width: 0.02, height: 0.15 },
-          { x: 0.2, y: 0.3, width: 0.02, height: 0.15 },
-          { x: 0.4, y: 0.5, width: 0.02, height: 0.3 },
-          { x: 0.6, y: 0.2, width: 0.02, height: 0.5 },
-          { x: 0.8, y: 0.5, width: 0.02, height: 0.4 },
-          { x: 0.4, y: 0.2, width: 0.4,  height: 0.02 },
-          { x: 0.4, y: 0.7, width: 0.4,  height: 0.02 }
+          { x: 0.5, y: 0.3, width: 0.2,  height: 0.02 }
         ]
       }
     ];
 
+    let currentLevel = 0;    // Index of the current level
+    let levelData;           // Absolute coordinates for the current level (walls and finish)
+    let remainingTime = 10.0; // Countdown timer (seconds)
+    let lastTime;            // Used for tracking frame time
+    let gameRunning = false; // Game state flag
+
     /************************************
-     * Level & Layout Management
+     * Level Management
      ************************************/
-    // loadLevel converts relative coordinates to absolute values.
-    // If reset is true, it resets the ball’s position and timer.
-    function loadLevel(index, reset = true) {
-      const lvl = levels[index];
-      if (reset) {
-        ball.x = lvl.start.x * canvasWidth;
-        ball.y = lvl.start.y * canvasHeight;
-        ball.vx = 0;
-        ball.vy = 0;
-        remainingTime = 10.0;
-      }
+    // Converts relative coordinates to absolute values based on canvas size.
+    function loadLevel(index) {
+      let level = levels[index];
+      // Set the ball's starting position.
+      ball.x = level.start.x * canvas.width;
+      ball.y = level.start.y * canvas.height;
+      ball.vx = 0;
+      ball.vy = 0;
+
+      // Reset the timer for the level.
+      remainingTime = 10.0;
       levelDisplay.textContent = index + 1;
-      scoreDisplay.textContent = score;
-      currentLevelData = {
+
+      // Convert finish area and walls to absolute coordinates.
+      levelData = {
         finish: {
-          x: lvl.finish.x * canvasWidth,
-          y: lvl.finish.y * canvasHeight,
-          width: lvl.finish.width * canvasWidth,
-          height: lvl.finish.height * canvasHeight
+          x: level.finish.x * canvas.width,
+          y: level.finish.y * canvas.height,
+          width: level.finish.width * canvas.width,
+          height: level.finish.height * canvas.height
         },
-        walls: lvl.walls.map(w => ({
-          x: w.x * canvasWidth,
-          y: w.y * canvasHeight,
-          width: w.width * canvasWidth,
-          height: w.height * canvasHeight
+        walls: level.walls.map(w => ({
+          x: w.x * canvas.width,
+          y: w.y * canvas.height,
+          width: w.width * canvas.width,
+          height: w.height * canvas.height
         }))
       };
     }
@@ -412,48 +181,59 @@
     /************************************
      * Device Orientation Handling
      ************************************/
+    // Handle device orientation events and update tilt values.
     function handleOrientation(event) {
-      // event.gamma: left/right tilt; event.beta: front/back tilt.
+      // event.gamma: left-to-right tilt; event.beta: front-to-back tilt.
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
-    // Start listening immediately
-    window.addEventListener('deviceorientation', handleOrientation);
 
     /************************************
-     * Collision Detection (Circle vs. Rectangle)
+     * Collision Detection
      ************************************/
+    // Check if a circle (the ball) collides with a rectangle (a wall)
     function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
-      const closestX = Math.max(rx, Math.min(cx, rx + rw));
-      const closestY = Math.max(ry, Math.min(cy, ry + rh));
-      const dx = cx - closestX;
-      const dy = cy - closestY;
+      // Find the closest point on the rectangle.
+      let closestX = Math.max(rx, Math.min(cx, rx + rw));
+      let closestY = Math.max(ry, Math.min(cy, ry + rh));
+      // Calculate distance from circle center.
+      let dx = cx - closestX;
+      let dy = cy - closestY;
       return (dx * dx + dy * dy) < (radius * radius);
     }
 
     /************************************
-     * Game Update & Render Logic
+     * Game Update Logic
      ************************************/
     function update(delta) {
-      // Update ball velocity based on tilt and apply friction.
+      // Update ball velocity based on tilt.
       ball.vx += tilt.x * accelerationFactor;
       ball.vy += tilt.y * accelerationFactor;
       ball.vx *= friction;
       ball.vy *= friction;
-      const prevX = ball.x, prevY = ball.y;
+
+      // Save previous position (in case we need to revert due to collision).
+      let prevX = ball.x;
+      let prevY = ball.y;
+
+      // Update ball position.
       ball.x += ball.vx;
       ball.y += ball.vy;
 
-      // If the ball rolls off the screen (any part out-of-bound), it's game over.
-      if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvasWidth ||
-          ball.y - ball.radius < 0 || ball.y + ball.radius > canvasHeight) {
-        gameOver(false);
+      // Check if the ball has completely rolled off the screen.
+      if (ball.x + ball.radius < 0 ||
+          ball.x - ball.radius > canvas.width ||
+          ball.y + ball.radius < 0 ||
+          ball.y - ball.radius > canvas.height) {
+        // Ball left the perimeter: game over.
+        gameOver();
         return;
       }
 
       // Collision detection with walls.
-      for (let wall of currentLevelData.walls) {
+      for (let wall of levelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
+          // On collision, revert position and reset velocity.
           ball.x = prevX;
           ball.y = prevY;
           ball.vx = 0;
@@ -463,44 +243,48 @@
       }
 
       // Check if ball reaches the finish area.
-      const f = currentLevelData.finish;
-      if (ball.x > f.x && ball.x < f.x + f.width &&
-          ball.y > f.y && ball.y < f.y + f.height) {
-        gameState = 'levelComplete';
-        score += 1;
-        // After a short pause, load the next level or finish the game.
-        setTimeout(() => {
-          currentLevelIndex++;
-          if (currentLevelIndex >= levels.length) {
-            gameOver(true);
-          } else {
-            loadLevel(currentLevelIndex);
-            gameState = 'playing';
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop);
-          }
-        }, 1000);
+      let finish = levelData.finish;
+      if (
+        ball.x > finish.x &&
+        ball.x < finish.x + finish.width &&
+        ball.y > finish.y &&
+        ball.y < finish.y + finish.height
+      ) {
+        // Advance to next level. Restart from level 1 if done with all levels.
+        currentLevel++;
+        if (currentLevel >= levels.length) {
+          currentLevel = 0;
+        }
+        loadLevel(currentLevel);
       }
 
-      // Update countdown timer.
+      // Update timer.
       remainingTime -= delta / 1000;
       if (remainingTime <= 0) {
-        gameOver(false);
+        // Time expired: game over.
+        gameOver();
       }
       timerDisplay.textContent = remainingTime.toFixed(1);
     }
 
+    /************************************
+     * Rendering the Game
+     ************************************/
     function render() {
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      // Draw finish area.
-      const f = currentLevelData.finish;
-      ctx.fillStyle = 'lime';
-      ctx.fillRect(f.x, f.y, f.width, f.height);
+      // Clear the canvas.
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw the finish area.
+      let finish = levelData.finish;
+      ctx.fillStyle = 'green';
+      ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
+
       // Draw walls.
       ctx.fillStyle = 'white';
-      for (let wall of currentLevelData.walls) {
+      for (let wall of levelData.walls) {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       }
+
       // Draw the ball.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
@@ -509,88 +293,68 @@
       ctx.closePath();
     }
 
-    // Main Game Loop using requestAnimationFrame.
+    /************************************
+     * Main Game Loop using requestAnimationFrame
+     ************************************/
     function gameLoop(timestamp) {
-      if (gameState !== 'playing') return;
+      if (!gameRunning) return;
       if (!lastTime) lastTime = timestamp;
-      const delta = timestamp - lastTime;
+      let delta = timestamp - lastTime;
       lastTime = timestamp;
+
       update(delta);
       render();
       requestAnimationFrame(gameLoop);
     }
 
     /************************************
-     * Game Over & Restart Handling
+     * Game Over Handling
      ************************************/
-    function gameOver(win) {
-      gameState = 'gameOver';
-      finalScoreDisplay.textContent = score;
-      // Update high score if necessary.
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('mazeHighScore', highScore);
-      }
-      finalHighScoreDisplay.textContent = highScore;
-      gameOverOverlay.classList.remove('hidden');
-    }
-
-    function restartGame() {
-      gameOverOverlay.classList.add('hidden');
-      initGame();
-      // Restart instruction overlay sequence
-      showInstructions();
+    function gameOver() {
+      // Display the game over overlay.
+      gameOverOverlay.style.display = 'flex';
+      gameRunning = false;
+      // After a short pause, restart the current level.
+      setTimeout(() => {
+        gameOverOverlay.style.display = 'none';
+        loadLevel(currentLevel);
+        lastTime = performance.now();
+        gameRunning = true;
+        requestAnimationFrame(gameLoop);
+      }, 2000); // Show game over for 2 seconds.
     }
 
     /************************************
-     * Game Initialization & Start
+     * Starting the Game and Requesting Permissions
      ************************************/
-    function initGame() {
-      gameState = 'playing';
-      currentLevelIndex = 0;
-      score = 0;
-      loadLevel(currentLevelIndex);
+    function startGame() {
+      // Hide the start button.
+      startButton.style.display = 'none';
+
+      // Request permission for device orientation on iOS 13+.
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+              alert("Permission for device orientation was denied.");
+            }
+          })
+          .catch(console.error);
+      } else {
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+
+      // Load the first level and start the game loop.
+      loadLevel(currentLevel);
+      gameRunning = true;
       lastTime = performance.now();
       requestAnimationFrame(gameLoop);
     }
 
-    /************************************
-     * Instruction Sequence (Corner Popup)
-     ************************************/
-    const instructions = [
-      "Welcome! Tilt your device to guide the red ball.",
-      "Caution: Watch out for the edges! If the ball rolls off the screen, it’s game over.",
-      "Complete each level before time runs out. Your score increases with every level cleared."
-    ];
-    let instructionIndex = 0;
-    function showInstructions() {
-      instructionIndex = 0;
-      instructionOverlay.style.display = 'block';
-      nextInstruction();
-    }
-    function nextInstruction() {
-      if (instructionIndex < instructions.length) {
-        instructionOverlay.textContent = instructions[instructionIndex];
-        instructionIndex++;
-        setTimeout(nextInstruction, 2000);
-      } else {
-        instructionOverlay.style.opacity = 0;
-        setTimeout(() => {
-          instructionOverlay.style.display = 'none';
-          instructionOverlay.style.opacity = 1; // reset opacity for future restarts if needed
-        }, 500);
-      }
-    }
-
-    // Start game immediately once the page loads.
-    window.addEventListener('load', () => {
-      initGame();
-      showInstructions();
-    });
-
-    // Event Listeners for Restart Button.
-    restartButton.addEventListener('click', restartGame);
-    restartButton.addEventListener('touchend', restartGame);
+    // Attach event listener to the start button.
+    startButton.addEventListener('click', startGame);
   </script>
 </body>
 </html>
