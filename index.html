@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Basic Reset & Crisp UI Styling */
+    /* Basic Reset & Crisp UI */
     html, body {
       margin: 0;
       padding: 0;
@@ -15,12 +15,12 @@
       font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    /* Canvas for game drawing */
+    /* Canvas */
     #gameCanvas {
       display: block;
       background: #222;
     }
-    /* HUD styling */
+    /* HUD */
     #hud {
       position: absolute;
       top: 10px;
@@ -30,7 +30,7 @@
       line-height: 1.6;
       text-shadow: 1px 1px 2px #000;
     }
-    /* Start Button Styling */
+    /* Start Button */
     #startButton {
       position: absolute;
       top: 50%;
@@ -50,7 +50,7 @@
     #startButton:hover {
       background: #218838;
     }
-    /* Game Over Overlay Styling */
+    /* Game Over Overlay */
     #gameOverOverlay {
       position: absolute;
       top: 0;
@@ -64,8 +64,8 @@
       align-items: center;
       font-size: 42px;
       z-index: 30;
-      display: none;
       text-align: center;
+      display: none;
     }
   </style>
 </head>
@@ -88,7 +88,7 @@
     const timerDisplay = document.getElementById('timerDisplay');
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
-
+    
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -105,29 +105,28 @@
       vy: 0
     };
 
-    // Tilt values from device orientation.
+    // Tilt values.
     let tilt = { x: 0, y: 0 };
     const accelerationFactor = 0.05;
     const friction = 0.98;
 
-    // Game state variables.
-    let currentLevel = 0;  // For display, levels are numbered currentLevel+1.
-    let levelData;         // Contains absolute coordinates for finish and walls.
-    let remainingTime = 10.0; // Seconds countdown per level.
-    let lastTime;          // For tracking frame time.
+    // Game state.
+    let currentLevel = 0; // Levels are displayed as currentLevel+1.
+    let levelData;        // Contains absolute positions for finish and walls.
+    let remainingTime = 10.0;
+    let lastTime;
     let gameRunning = false;
-    
+    let score = 0;
+
     /************************************
      * Infinite Level Generation
      ************************************/
-    // Generate a random level. Start and finish positions are chosen based on a coin flip.
-    // Walls are generated randomly (with number increasing with level number).
     function generateRandomLevel(levelNumber) {
-      // Choose start and finish positions.
+      // Choose start and finish positions (with a random coin flip).
       let swap = Math.random() < 0.5;
       let start = swap ? { x: 0.8, y: 0.8 } : { x: 0.1, y: 0.1 };
       let finish = swap ? { x: 0.1, y: 0.1 } : { x: 0.8, y: 0.8 };
-      // Add a slight random variation.
+      // Add slight random variation.
       start.x += (Math.random() - 0.5) * 0.05;
       start.y += (Math.random() - 0.5) * 0.05;
       finish.x += (Math.random() - 0.5) * 0.05;
@@ -137,7 +136,7 @@
       
       // Generate random walls.
       let walls = [];
-      let numWalls = Math.min(10, 3 + Math.floor(currentLevel / 2)); // More walls as level increases.
+      let numWalls = Math.min(10, 3 + Math.floor(currentLevel / 2));
       let attempts = 0;
       while (walls.length < numWalls && attempts < numWalls * 10) {
         attempts++;
@@ -147,7 +146,6 @@
           width: Math.random() * 0.08 + 0.02,
           height: Math.random() * 0.08 + 0.02
         };
-        // Ensure walls stay within boundaries.
         if (wall.x + wall.width > 0.9) wall.width = 0.9 - wall.x;
         if (wall.y + wall.height > 0.9) wall.height = 0.9 - wall.y;
         let buffer = 0.12;
@@ -161,7 +159,7 @@
       return { start, finish, walls };
     }
 
-    // Loads the given level (using random generation) and converts relative positions to absolute.
+    // Load a level: generate a new random level and convert positions to absolute.
     function loadLevel(levelNumber, reset = true) {
       let level = generateRandomLevel(levelNumber);
       levelData = {
@@ -192,13 +190,12 @@
      * Device Orientation Handling
      ************************************/
     function handleOrientation(event) {
-      // event.gamma: left-right tilt; event.beta: front-back tilt.
+      // event.gamma: left/right tilt; event.beta: front/back tilt.
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
-    // For non-iOS devices, add listener immediately.
-    if (window.DeviceOrientationEvent &&
-        typeof DeviceOrientationEvent.requestPermission !== 'function') {
+    // For non-iOS devices, attach immediately.
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
       window.addEventListener('deviceorientation', handleOrientation);
     }
 
@@ -214,28 +211,38 @@
     }
 
     /************************************
-     * Game Update Logic
+     * Game Update Logic (Refactored)
      ************************************/
     function update(delta) {
+      // Update velocity and position.
       ball.vx += tilt.x * accelerationFactor;
       ball.vy += tilt.y * accelerationFactor;
       ball.vx *= friction;
       ball.vy *= friction;
-      
-      let prevX = ball.x, prevY = ball.y;
       ball.x += ball.vx;
       ball.y += ball.vy;
-
-      // Check if ball completely leaves the screen.
-      if ((ball.x + ball.radius < 0) ||
-          (ball.x - ball.radius > canvas.width) ||
-          (ball.y + ball.radius < 0) ||
-          (ball.y - ball.radius > canvas.height)) {
+      
+      // Check if the ball's center is within the finish area.
+      let finish = levelData.finish;
+      if (ball.x > finish.x && ball.x < finish.x + finish.width &&
+          ball.y > finish.y && ball.y < finish.y + finish.height) {
+        score += 100;
+        currentLevel++;
+        loadLevel(currentLevel);
+        return;
+      }
+      
+      // Check if the ball touches any canvas edge.
+      if (ball.x - ball.radius <= 0 || ball.x + ball.radius >= canvas.width ||
+          ball.y - ball.radius <= 0 || ball.y + ball.radius >= canvas.height) {
         gameOver();
         return;
       }
-
-      // Collision detection with walls.
+      
+      // Save previous position in case a wall collision occurs.
+      let prevX = ball.x - ball.vx;
+      let prevY = ball.y - ball.vy;
+      // Check collision with walls.
       for (let wall of levelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
           ball.x = prevX;
@@ -245,21 +252,8 @@
           break;
         }
       }
-
-      // Check if ball reaches finish area.
-      let finish = levelData.finish;
-      if (ball.x > finish.x &&
-          ball.x < finish.x + finish.width &&
-          ball.y > finish.y &&
-          ball.y < finish.y + finish.height) {
-        // Award 100 points and generate the next level.
-        // (Infinite levels: simply increment currentLevel.)
-        score += 100;
-        currentLevel++;
-        loadLevel(currentLevel);
-      }
-
-      // Update countdown timer.
+      
+      // Update the timer.
       remainingTime -= delta / 1000;
       if (remainingTime <= 0) {
         gameOver();
@@ -272,16 +266,13 @@
      ************************************/
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Draw finish area.
       let finish = levelData.finish;
       ctx.fillStyle = 'green';
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      // Draw walls.
       ctx.fillStyle = 'white';
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
-      // Draw the ball.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = 'red';
@@ -290,7 +281,7 @@
     }
 
     /************************************
-     * Main Game Loop using requestAnimationFrame
+     * Main Game Loop
      ************************************/
     function gameLoop(timestamp) {
       if (!gameRunning) return;
@@ -307,7 +298,6 @@
      ************************************/
     function gameOver() {
       gameRunning = false;
-      // Update high score if necessary.
       let storedHighScore = parseInt(localStorage.getItem('mazeHighScore')) || 0;
       if (score > storedHighScore) {
         localStorage.setItem('mazeHighScore', score);
@@ -324,13 +314,10 @@
     }
 
     /************************************
-     * Starting the Game
+     * Starting the Game and Requesting Permissions
      ************************************/
     function startGame() {
-      // Hide the start button.
       startButton.style.display = 'none';
-
-      // Request device orientation permission on iOS 13+.
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
@@ -345,15 +332,12 @@
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
       }
-
-      // Load the first level and start the game loop.
       loadLevel(currentLevel);
       gameRunning = true;
       lastTime = performance.now();
       requestAnimationFrame(gameLoop);
     }
 
-    // Attach event listener to the start button.
     startButton.addEventListener('click', startGame);
   </script>
 </body>
