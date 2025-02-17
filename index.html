@@ -5,14 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Global Reset & Modern Theme (Orange & Blue) */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* Global Reset & Theme (Orange & Blue) */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     html, body {
       height: 100%;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    /* Animated Orange-Blue Gradient Background */
+    /* Animated Orange-to-Blue Gradient Background */
     body {
       background: linear-gradient(135deg, #ff9800, #2196f3);
       background-size: 200% 200%;
@@ -24,7 +28,7 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas for game drawing */
+    /* Canvas for Game */
     #gameCanvas {
       display: block;
       background: #fff;
@@ -44,7 +48,10 @@
       z-index: 10;
     }
     /* Start Overlay with Instructions */
-    #startOverlay, #pauseOverlay, #settingsOverlay, #gameOverOverlay {
+    #startOverlay,
+    #pauseOverlay,
+    #settingsOverlay,
+    #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
@@ -59,12 +66,18 @@
       padding: 30px;
       z-index: 20;
     }
-    #startOverlay h1 { font-size: 36px; margin-bottom: 20px; color: #ff9800; }
-    #startOverlay p { font-size: 18px; margin-bottom: 30px; color: #333; }
-    #startOverlay button,
-    #pauseOverlay button,
-    #settingsOverlay button,
-    #gameOverOverlay button {
+    #startOverlay h1 {
+      font-size: 36px;
+      margin-bottom: 20px;
+      color: #ff9800;
+    }
+    #startOverlay p {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #333;
+    }
+    /* Modern Flat Buttons */
+    button {
       padding: 15px 25px;
       font-size: 22px;
       background: #ff9800;
@@ -76,17 +89,18 @@
       transition: background 0.3s ease, transform 0.2s ease;
       margin-top: 20px;
     }
-    #startOverlay button:hover,
-    #pauseOverlay button:hover,
-    #settingsOverlay button:hover,
-    #gameOverOverlay button:hover {
+    button:hover {
       background: #e68900;
       transform: scale(1.05);
     }
     /* Pause Overlay */
-    #pauseOverlay { display: none; }
+    #pauseOverlay {
+      display: none;
+    }
     /* Settings Overlay */
-    #settingsOverlay { display: none; }
+    #settingsOverlay {
+      display: none;
+    }
     /* Sleek Game Over Overlay */
     #gameOverOverlay {
       display: none;
@@ -100,11 +114,24 @@
       font-size: 36px;
       color: #ffcc80;
     }
-    #gameOverOverlay h1 { font-size: 48px; margin-bottom: 20px; color: #2196f3; }
-    #gameOverOverlay .score-line { font-size: 28px; margin: 10px 0; }
-    #gameOverOverlay .score-line .score { color: #ffcc80; font-weight: bold; }
-    #gameOverOverlay .score-line .highScore { color: #2196f3; font-weight: bold; }
-    /* Pause Button (top-right) */
+    #gameOverOverlay h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      color: #2196f3;
+    }
+    #gameOverOverlay .score-line {
+      font-size: 28px;
+      margin: 10px 0;
+    }
+    #gameOverOverlay .score-line .score {
+      color: #ffcc80;
+      font-weight: bold;
+    }
+    #gameOverOverlay .score-line .highScore {
+      color: #2196f3;
+      font-weight: bold;
+    }
+    /* Pause Button (always visible) */
     #pauseButton {
       position: absolute;
       top: 20px;
@@ -121,9 +148,15 @@
   </style>
 </head>
 <body>
-  <!-- Background Music -->
+  <!-- Background Music & Sound Effects -->
   <audio id="bgMusic" loop>
     <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="collisionSound">
+    <source src="https://www.soundjay.com/button/sounds/button-16.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="levelCompleteSound">
+    <source src="https://www.soundjay.com/button/sounds/button-3.mp3" type="audio/mpeg">
   </audio>
   
   <!-- Start Overlay with Instructions -->
@@ -145,7 +178,7 @@
   </div>
   
   <!-- Pause Button -->
-  <button id="pauseButton" style="display:none;">Pause</button>
+  <button id="pauseButton">Pause</button>
   
   <!-- Pause Overlay -->
   <div id="pauseOverlay">
@@ -193,8 +226,10 @@
     const scoreInfo = document.getElementById('scoreInfo');
     const highScoreInfo = document.getElementById('highScoreInfo');
     const bgMusic = document.getElementById('bgMusic');
+    const collisionSound = document.getElementById('collisionSound');
+    const levelCompleteSound = document.getElementById('levelCompleteSound');
     
-    // Set initial music volume.
+    // Set initial background music volume.
     bgMusic.volume = volumeSlider.value;
     
     function resizeCanvas() {
@@ -204,7 +239,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // Ball object.
+    // The ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -218,9 +253,9 @@
     let sensitivity = parseFloat(sensitivitySlider.value);
     const friction = 0.98;
     
-    // Game state.
+    // Game state variables.
     let currentLevel = 0;  // Displayed as currentLevel+1.
-    let levelData;         // Contains absolute finish & wall positions.
+    let levelData;         // Contains absolute positions for finish and walls.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -329,6 +364,8 @@
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
+        levelCompleteSound.currentTime = 0;
+        levelCompleteSound.play();
         score += 100;
         currentLevel++;
         loadLevel(currentLevel);
@@ -347,7 +384,8 @@
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
-          // Gently bounce: revert position and dampen velocity.
+          collisionSound.currentTime = 0;
+          collisionSound.play();
           ball.x = prevX;
           ball.y = prevY;
           ball.vx *= -0.6;
@@ -369,15 +407,15 @@
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let finish = levelData.finish;
-      ctx.fillStyle = '#e65100'; // Dark orange target.
+      ctx.fillStyle = '#e65100';  // Dark orange target.
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      ctx.fillStyle = '#444';    // Dark gray walls.
+      ctx.fillStyle = '#444';     // Obstacles in dark gray.
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.fillStyle = '#2196F3'; // Blue ball.
+      ctx.fillStyle = '#2196F3';  // Blue ball.
       ctx.fill();
       ctx.closePath();
     }
@@ -420,10 +458,38 @@
     }
     
     /************************************
-     * Starting the Game and Requesting Permissions
+     * Pause & Settings Functionality
      ************************************/
-    function startGame() {
-      startOverlay.style.display = 'none';
+    pauseButton.addEventListener('click', () => {
+      if (!gameRunning) return;
+      gameRunning = false;
+      pauseOverlay.style.display = 'flex';
+      bgMusic.pause();
+    });
+    resumeButton.addEventListener('click', () => {
+      pauseOverlay.style.display = 'none';
+      gameRunning = true;
+      lastTime = performance.now();
+      requestAnimationFrame(gameLoop);
+      bgMusic.play();
+    });
+    settingsButton.addEventListener('click', () => {
+      settingsOverlay.style.display = 'flex';
+    });
+    closeSettingsButton.addEventListener('click', () => {
+      settingsOverlay.style.display = 'none';
+    });
+    volumeSlider.addEventListener('input', () => {
+      bgMusic.volume = volumeSlider.value;
+    });
+    sensitivitySlider.addEventListener('input', () => {
+      // The sensitivity variable is updated in the update() function.
+    });
+    
+    /************************************
+     * Device Orientation Handling & iOS Permission
+     ************************************/
+    function requestDeviceMotionPermission() {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
@@ -438,66 +504,29 @@
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
       }
-      // Start background music.
+    }
+    
+    /************************************
+     * Starting the Game
+     ************************************/
+    function startGame() {
+      startOverlay.style.display = 'none';
+      requestDeviceMotionPermission();
       bgMusic.volume = volumeSlider.value;
-      bgMusic.play().catch(e => { /* autoplay may be blocked until interaction */ });
+      bgMusic.play().catch(e => {}); // Some browsers block autoplay until user interaction.
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
       gameRunning = true;
       lastTime = performance.now();
       requestAnimationFrame(gameLoop);
-      pauseButton.style.display = 'block';
     }
     
     startButton.addEventListener('click', startGame);
     
-    /************************************
-     * Pause & Settings Functionality
-     ************************************/
-    const pauseButton = document.getElementById('pauseButton');
-    pauseButton.addEventListener('click', () => {
-      if (!gameRunning) return;
-      gameRunning = false;
-      pauseOverlay.style.display = 'flex';
-      bgMusic.pause();
-    });
-    
-    const resumeButton = document.getElementById('resumeButton');
-    resumeButton.addEventListener('click', () => {
-      pauseOverlay.style.display = 'none';
-      gameRunning = true;
-      lastTime = performance.now();
-      requestAnimationFrame(gameLoop);
-      bgMusic.play();
-    });
-    
-    const settingsButton = document.getElementById('settingsButton');
-    settingsButton.addEventListener('click', () => {
-      settingsOverlay.style.display = 'flex';
-    });
-    
-    const closeSettingsButton = document.getElementById('closeSettingsButton');
-    closeSettingsButton.addEventListener('click', () => {
-      settingsOverlay.style.display = 'none';
-    });
-    
-    volumeSlider.addEventListener('input', () => {
-      bgMusic.volume = volumeSlider.value;
-    });
-    
-    // For iOS: request permission on first touch.
+    // For iOS: request motion permission on first touch if needed.
     window.addEventListener('touchend', function iosRequest(e) {
-      if (typeof DeviceOrientationEvent !== 'undefined' &&
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation);
-            }
-          })
-          .catch(console.error);
-      }
+      requestDeviceMotionPermission();
       window.removeEventListener('touchend', iosRequest);
     });
   </script>
