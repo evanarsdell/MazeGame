@@ -5,18 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Global Reset & Theme (Orange & Blue) */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    /* Global Reset & Modern Theme (Orange & Blue) */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       height: 100%;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    /* Animated Orange-to-Blue Gradient Background */
+    /* Animated Orange-Blue Gradient Background */
     body {
       background: linear-gradient(135deg, #ff9800, #2196f3);
       background-size: 200% 200%;
@@ -28,7 +24,7 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas for Game */
+    /* Canvas for game drawing */
     #gameCanvas {
       display: block;
       background: #fff;
@@ -41,7 +37,7 @@
       top: 20px;
       left: 20px;
       padding: 10px 15px;
-      background: rgba(255,255,255,0.8);
+      background: rgba(255, 255, 255, 0.8);
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       font-size: 20px;
@@ -63,16 +59,8 @@
       padding: 30px;
       z-index: 20;
     }
-    #startOverlay h1 {
-      font-size: 36px;
-      margin-bottom: 20px;
-      color: #ff9800;
-    }
-    #startOverlay p {
-      font-size: 18px;
-      margin-bottom: 30px;
-      color: #333;
-    }
+    #startOverlay h1 { font-size: 36px; margin-bottom: 20px; color: #ff9800; }
+    #startOverlay p { font-size: 18px; margin-bottom: 30px; color: #333; }
     #startOverlay button,
     #pauseOverlay button,
     #settingsOverlay button,
@@ -96,16 +84,10 @@
       transform: scale(1.05);
     }
     /* Pause Overlay */
-    #pauseOverlay {
-      display: none;
-      background: rgba(255,255,255,0.95);
-    }
+    #pauseOverlay { display: none; }
     /* Settings Overlay */
-    #settingsOverlay {
-      display: none;
-      background: rgba(255,255,255,0.95);
-    }
-    /* Game Over Overlay - Sleek and Modern */
+    #settingsOverlay { display: none; }
+    /* Sleek Game Over Overlay */
     #gameOverOverlay {
       display: none;
       background: rgba(0,0,0,0.9);
@@ -118,24 +100,11 @@
       font-size: 36px;
       color: #ffcc80;
     }
-    #gameOverOverlay h1 {
-      font-size: 48px;
-      margin-bottom: 20px;
-      color: #2196f3;
-    }
-    #gameOverOverlay .score-line {
-      font-size: 28px;
-      margin: 10px 0;
-    }
-    #gameOverOverlay .score-line .score {
-      color: #ffcc80;
-      font-weight: bold;
-    }
-    #gameOverOverlay .score-line .highScore {
-      color: #2196f3;
-      font-weight: bold;
-    }
-    /* Pause Button (added to body dynamically) */
+    #gameOverOverlay h1 { font-size: 48px; margin-bottom: 20px; color: #2196f3; }
+    #gameOverOverlay .score-line { font-size: 28px; margin: 10px 0; }
+    #gameOverOverlay .score-line .score { color: #ffcc80; font-weight: bold; }
+    #gameOverOverlay .score-line .highScore { color: #2196f3; font-weight: bold; }
+    /* Pause Button (top-right) */
     #pauseButton {
       position: absolute;
       top: 20px;
@@ -175,6 +144,9 @@
     <div>Score: <span id="scoreDisplay">0</span></div>
   </div>
   
+  <!-- Pause Button -->
+  <button id="pauseButton" style="display:none;">Pause</button>
+  
   <!-- Pause Overlay -->
   <div id="pauseOverlay">
     <h1>Paused</h1>
@@ -209,6 +181,7 @@
     const scoreDisplay = document.getElementById('scoreDisplay');
     const startOverlay = document.getElementById('startOverlay');
     const startButton = document.getElementById('startButton');
+    const pauseButton = document.getElementById('pauseButton');
     const pauseOverlay = document.getElementById('pauseOverlay');
     const resumeButton = document.getElementById('resumeButton');
     const settingsButton = document.getElementById('settingsButton');
@@ -221,7 +194,7 @@
     const highScoreInfo = document.getElementById('highScoreInfo');
     const bgMusic = document.getElementById('bgMusic');
     
-    // Set initial background music volume.
+    // Set initial music volume.
     bgMusic.volume = volumeSlider.value;
     
     function resizeCanvas() {
@@ -231,7 +204,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // The ball controlled by the player.
+    // Ball object.
     let ball = {
       x: 0,
       y: 0,
@@ -245,9 +218,9 @@
     let sensitivity = parseFloat(sensitivitySlider.value);
     const friction = 0.98;
     
-    // Game state variables.
+    // Game state.
     let currentLevel = 0;  // Displayed as currentLevel+1.
-    let levelData;         // Contains absolute positions for finish and walls.
+    let levelData;         // Contains absolute finish & wall positions.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -374,6 +347,7 @@
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
+          // Gently bounce: revert position and dampen velocity.
           ball.x = prevX;
           ball.y = prevY;
           ball.vx *= -0.6;
@@ -395,15 +369,15 @@
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let finish = levelData.finish;
-      ctx.fillStyle = '#e65100';  // Dark orange target.
+      ctx.fillStyle = '#e65100'; // Dark orange target.
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      ctx.fillStyle = '#444';     // Dark gray obstacles.
+      ctx.fillStyle = '#444';    // Dark gray walls.
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.fillStyle = '#2196F3';  // Blue ball.
+      ctx.fillStyle = '#2196F3'; // Blue ball.
       ctx.fill();
       ctx.closePath();
     }
@@ -466,13 +440,14 @@
       }
       // Start background music.
       bgMusic.volume = volumeSlider.value;
-      bgMusic.play().catch(e => { /* autoplay might be blocked until user interaction */ });
+      bgMusic.play().catch(e => { /* autoplay may be blocked until interaction */ });
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
       gameRunning = true;
       lastTime = performance.now();
       requestAnimationFrame(gameLoop);
+      pauseButton.style.display = 'block';
     }
     
     startButton.addEventListener('click', startGame);
@@ -480,11 +455,7 @@
     /************************************
      * Pause & Settings Functionality
      ************************************/
-    // Create a pause button in the top-right corner.
-    const pauseButton = document.createElement('button');
-    pauseButton.id = 'pauseButton';
-    pauseButton.innerText = 'Pause';
-    document.body.appendChild(pauseButton);
+    const pauseButton = document.getElementById('pauseButton');
     pauseButton.addEventListener('click', () => {
       if (!gameRunning) return;
       gameRunning = false;
@@ -492,8 +463,8 @@
       bgMusic.pause();
     });
     
-    // Resume Button.
-    resumeButton && resumeButton.addEventListener('click', () => {
+    const resumeButton = document.getElementById('resumeButton');
+    resumeButton.addEventListener('click', () => {
       pauseOverlay.style.display = 'none';
       gameRunning = true;
       lastTime = performance.now();
@@ -501,22 +472,21 @@
       bgMusic.play();
     });
     
-    // Open Settings.
-    settingsButton && settingsButton.addEventListener('click', () => {
+    const settingsButton = document.getElementById('settingsButton');
+    settingsButton.addEventListener('click', () => {
       settingsOverlay.style.display = 'flex';
     });
     
-    // Close Settings.
-    closeSettingsButton && closeSettingsButton.addEventListener('click', () => {
+    const closeSettingsButton = document.getElementById('closeSettingsButton');
+    closeSettingsButton.addEventListener('click', () => {
       settingsOverlay.style.display = 'none';
     });
     
-    // Update background music volume when slider changes.
     volumeSlider.addEventListener('input', () => {
       bgMusic.volume = volumeSlider.value;
     });
     
-    // For iOS, request permission on first touch.
+    // For iOS: request permission on first touch.
     window.addEventListener('touchend', function iosRequest(e) {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
