@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Global Reset & Theme (Orange & Blue) */
+    /* Global Reset & Theme */
     * {
       margin: 0;
       padding: 0;
@@ -14,47 +14,68 @@
     html, body {
       height: 100%;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
+    /* Animated Orange Gradient Background */
     body {
-      /* Orange-to-blue animated gradient background */
-      background: linear-gradient(135deg, #ff9800, #2196f3);
+      background: linear-gradient(135deg, #ffcc80, #ff9800);
       background-size: 200% 200%;
       animation: bgAnimation 10s ease infinite;
-      color: #fff;
+      color: #333;
     }
     @keyframes bgAnimation {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas for game drawing */
+    /* Canvas for Game Drawing */
     #gameCanvas {
       display: block;
       background: #fff;
       margin: auto;
       border: 2px solid #ddd;
     }
-    /* Clean, semi-transparent HUD */
+    /* Glassmorphism-style HUD */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
       padding: 10px 15px;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(255,255,255,0.8);
       border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       font-size: 20px;
-      font-weight: 500;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
       z-index: 10;
     }
-    /* Modern Flat Start Button */
-    #startButton {
+    /* Modern Start Overlay with Instructions */
+    #startOverlay {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 18px 28px;
-      font-size: 24px;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 30px;
+      z-index: 20;
+    }
+    #startOverlay h1 {
+      font-size: 36px;
+      margin-bottom: 20px;
+      color: #ff9800;
+    }
+    #startOverlay p {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #333;
+    }
+    #startOverlay button {
+      padding: 15px 25px;
+      font-size: 22px;
       background: #ff9800;
       border: none;
       border-radius: 8px;
@@ -62,11 +83,10 @@
       cursor: pointer;
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
       transition: background 0.3s ease, transform 0.2s ease;
-      z-index: 20;
     }
-    #startButton:hover {
+    #startOverlay button:hover {
       background: #e68900;
-      transform: translate(-50%, -50%) scale(1.05);
+      transform: scale(1.05);
     }
     /* Sleek Game Over Overlay */
     #gameOverOverlay {
@@ -75,7 +95,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0,0,0,0.9);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -88,34 +108,42 @@
     #gameOverOverlay h1 {
       font-size: 48px;
       margin-bottom: 20px;
-      color: #ff9800;
+      color: #ffcc80;
     }
     #gameOverOverlay .score-line {
       font-size: 28px;
       margin: 10px 0;
     }
     #gameOverOverlay .score-line .score {
-      color: #ff9800;
+      color: #ffcc80;
       font-weight: bold;
     }
     #gameOverOverlay .score-line .highScore {
-      color: #2196f3;
+      color: #ff9800;
       font-weight: bold;
     }
   </style>
 </head>
 <body>
+  <!-- Start Overlay with Instructions -->
+  <div id="startOverlay">
+    <h1>Maze Runner</h1>
+    <p>Hold your phone flat. Tilt slowly to guide the ball into the target.<br>
+       Make sure the ball does not leave the screen!</p>
+    <button id="startButton">Start Game</button>
+  </div>
+  
   <canvas id="gameCanvas"></canvas>
   <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
   </div>
-  <button id="startButton">Start Game</button>
   <div id="gameOverOverlay">
     <h1>Game Over!</h1>
     <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
     <div class="score-line">High Score: <span class="highScore" id="highScoreInfo">0</span></div>
   </div>
+  
   <script>
     /************************************
      * Global Variables and Setup
@@ -124,6 +152,7 @@
     const ctx = canvas.getContext('2d');
     const levelDisplay = document.getElementById('levelDisplay');
     const timerDisplay = document.getElementById('timerDisplay');
+    const startOverlay = document.getElementById('startOverlay');
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
@@ -145,12 +174,12 @@
       vy: 0
     };
     
-    // Tilt values from device orientation.
+    // Tilt values.
     let tilt = { x: 0, y: 0 };
     const accelerationFactor = 0.05;
     const friction = 0.98;
     
-    // Game state variables.
+    // Game state.
     let currentLevel = 0;  // Displayed as currentLevel+1.
     let levelData;         // Contains absolute positions for finish and walls.
     let remainingTime = 10.0;
@@ -298,15 +327,18 @@
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let finish = levelData.finish;
-      ctx.fillStyle = 'green';
+      // Target square: Dark orange.
+      ctx.fillStyle = '#e65100';
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
+      // Walls: dark gray.
       ctx.fillStyle = '#444';
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
+      // Ball: Blue.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.fillStyle = 'red';
+      ctx.fillStyle = '#2196F3';
       ctx.fill();
       ctx.closePath();
     }
@@ -352,7 +384,7 @@
      * Starting the Game and Requesting Permissions
      ************************************/
     function startGame() {
-      startButton.style.display = 'none';
+      startOverlay.style.display = 'none';
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
