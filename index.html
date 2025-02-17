@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
+  <!-- Google Font for a modern look -->
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
   <style>
-    /* Global Reset & Theme (Orange & Blue) */
+    /* Global Reset & Modern Theme (Orange & Blue) */
     * {
       margin: 0;
       padding: 0;
@@ -13,14 +15,15 @@
     }
     html, body {
       height: 100%;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Montserrat', sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    /* Animated Orange-to-Blue Gradient Background */
+    /* Animated Gradient Background with Parallax */
     body {
       background: linear-gradient(135deg, #ff9800, #2196f3);
       background-size: 200% 200%;
       animation: bgAnimation 10s ease infinite;
+      transition: background-position 0.2s ease;
       color: #333;
     }
     @keyframes bgAnimation {
@@ -28,26 +31,26 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas for Game */
+    /* Canvas */
     #gameCanvas {
       display: block;
       background: #fff;
       margin: auto;
       border: 2px solid #ddd;
     }
-    /* Glassmorphism-style HUD */
+    /* Glassmorphic HUD */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
       padding: 10px 15px;
-      background: rgba(255, 255, 255, 0.8);
+      background: rgba(255,255,255,0.8);
       border-radius: 8px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       font-size: 20px;
       z-index: 10;
     }
-    /* Start Overlay with Instructions */
+    /* Overlays (Start, Pause, Settings, Game Over) */
     #startOverlay,
     #pauseOverlay,
     #settingsOverlay,
@@ -93,15 +96,7 @@
       background: #e68900;
       transform: scale(1.05);
     }
-    /* Pause Overlay */
-    #pauseOverlay {
-      display: none;
-    }
-    /* Settings Overlay */
-    #settingsOverlay {
-      display: none;
-    }
-    /* Sleek Game Over Overlay */
+    /* Game Over Overlay (Sleek & Animated) */
     #gameOverOverlay {
       display: none;
       background: rgba(0,0,0,0.9);
@@ -145,10 +140,22 @@
       cursor: pointer;
       z-index: 15;
     }
+    /* Transition Overlay for Level Transitions */
+    #transitionOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.8);
+      z-index: 25;
+      opacity: 0;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
-  <!-- Background Music & Sound Effects -->
+  <!-- Audio Elements -->
   <audio id="bgMusic" loop>
     <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
   </audio>
@@ -159,13 +166,40 @@
     <source src="https://www.soundjay.com/button/sounds/button-3.mp3" type="audio/mpeg">
   </audio>
   
-  <!-- Start Overlay with Instructions -->
+  <!-- Overlays -->
   <div id="startOverlay">
     <h1>Maze Runner</h1>
     <p>Hold your phone flat. Tilt slowly to guide the ball into the target.<br>
        Make sure the ball does not go off the screen!</p>
     <button id="startButton">Start Game</button>
   </div>
+  
+  <div id="pauseOverlay">
+    <h1>Paused</h1>
+    <button id="resumeButton">Resume</button>
+    <button id="settingsButton">Settings</button>
+  </div>
+  
+  <div id="settingsOverlay">
+    <h1>Settings</h1>
+    <p>Volume: <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5"></p>
+    <p>Sensitivity: <input type="range" id="sensitivitySlider" min="0.01" max="0.1" step="0.005" value="0.05"></p>
+    <p>Theme: <select id="themeSelect">
+      <option value="orange-blue">Orange & Blue</option>
+      <option value="light">Light Mode</option>
+      <option value="dark">Dark Mode</option>
+    </select></p>
+    <button id="closeSettingsButton">Close</button>
+  </div>
+  
+  <div id="gameOverOverlay">
+    <h1>Game Over!</h1>
+    <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
+    <div class="score-line">High Score: <span class="highScore" id="highScoreInfo">0</span></div>
+    <button id="restartButton">Restart</button>
+  </div>
+  
+  <div id="transitionOverlay"></div>
   
   <!-- Game Canvas -->
   <canvas id="gameCanvas"></canvas>
@@ -180,29 +214,6 @@
   <!-- Pause Button -->
   <button id="pauseButton">Pause</button>
   
-  <!-- Pause Overlay -->
-  <div id="pauseOverlay">
-    <h1>Paused</h1>
-    <button id="resumeButton">Resume</button>
-    <button id="settingsButton">Settings</button>
-  </div>
-  
-  <!-- Settings Overlay -->
-  <div id="settingsOverlay">
-    <h1>Settings</h1>
-    <p>Volume: <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5"></p>
-    <p>Sensitivity: <input type="range" id="sensitivitySlider" min="0.01" max="0.1" step="0.005" value="0.05"></p>
-    <button id="closeSettingsButton">Close</button>
-  </div>
-  
-  <!-- Game Over Overlay -->
-  <div id="gameOverOverlay">
-    <h1>Game Over!</h1>
-    <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
-    <div class="score-line">High Score: <span class="highScore" id="highScoreInfo">0</span></div>
-    <button id="restartButton">Restart</button>
-  </div>
-  
   <script>
     /************************************
      * Global Variables and Setup
@@ -214,17 +225,19 @@
     const scoreDisplay = document.getElementById('scoreDisplay');
     const startOverlay = document.getElementById('startOverlay');
     const startButton = document.getElementById('startButton');
-    const pauseButton = document.getElementById('pauseButton');
     const pauseOverlay = document.getElementById('pauseOverlay');
     const resumeButton = document.getElementById('resumeButton');
     const settingsButton = document.getElementById('settingsButton');
     const settingsOverlay = document.getElementById('settingsOverlay');
     const volumeSlider = document.getElementById('volumeSlider');
     const sensitivitySlider = document.getElementById('sensitivitySlider');
+    const themeSelect = document.getElementById('themeSelect');
     const closeSettingsButton = document.getElementById('closeSettingsButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
     const highScoreInfo = document.getElementById('highScoreInfo');
+    const pauseButton = document.getElementById('pauseButton');
+    const transitionOverlay = document.getElementById('transitionOverlay');
     const bgMusic = document.getElementById('bgMusic');
     const collisionSound = document.getElementById('collisionSound');
     const levelCompleteSound = document.getElementById('levelCompleteSound');
@@ -253,9 +266,9 @@
     let sensitivity = parseFloat(sensitivitySlider.value);
     const friction = 0.98;
     
-    // Game state variables.
-    let currentLevel = 0;  // Displayed as currentLevel+1.
-    let levelData;         // Contains absolute positions for finish and walls.
+    // Game state.
+    let currentLevel = 0;
+    let levelData;
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -324,14 +337,27 @@
       }
       levelDisplay.textContent = levelNumber + 1;
       scoreDisplay.textContent = score;
+      // Transition fade effect.
+      transitionOverlay.style.opacity = 1;
+      transitionOverlay.style.display = 'block';
+      setTimeout(() => {
+        transitionOverlay.style.transition = 'opacity 0.5s ease';
+        transitionOverlay.style.opacity = 0;
+        setTimeout(() => {
+          transitionOverlay.style.display = 'none';
+          transitionOverlay.style.transition = '';
+        }, 500);
+      }, 100);
     }
     
     /************************************
-     * Device Orientation Handling
+     * Device Orientation Handling & Parallax
      ************************************/
     function handleOrientation(event) {
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
+      // Parallax effect: adjust body background position based on tilt.
+      document.body.style.backgroundPosition = `${50 - tilt.x}% ${50 - tilt.y}%`;
     }
     if (window.DeviceOrientationEvent &&
         typeof DeviceOrientationEvent.requestPermission !== 'function') {
@@ -350,6 +376,42 @@
     }
     
     /************************************
+     * Particle Effects (for Level Completion)
+     ************************************/
+    let particles = [];
+    function createParticles() {
+      for (let i = 0; i < 30; i++) {
+        particles.push({
+          x: ball.x,
+          y: ball.y,
+          radius: Math.random() * 3 + 2,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          alpha: 1
+        });
+      }
+    }
+    function updateParticles(delta) {
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.02 * (delta / 16);
+      });
+      particles = particles.filter(p => p.alpha > 0);
+    }
+    function renderParticles() {
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = '#ffcc80';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+    
+    /************************************
      * Game Update Logic
      ************************************/
     function update(delta) {
@@ -361,17 +423,21 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
+      // Check finish.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
+        navigator.vibrate && navigator.vibrate(100);
         levelCompleteSound.currentTime = 0;
         levelCompleteSound.play();
+        createParticles();
         score += 100;
         currentLevel++;
         loadLevel(currentLevel);
         return;
       }
       
+      // Game over if entire ball off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -384,6 +450,7 @@
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
+          navigator.vibrate && navigator.vibrate(50);
           collisionSound.currentTime = 0;
           collisionSound.play();
           ball.x = prevX;
@@ -399,6 +466,7 @@
         gameOver();
       }
       timerDisplay.textContent = remainingTime.toFixed(1);
+      updateParticles(delta);
     }
     
     /************************************
@@ -409,7 +477,7 @@
       let finish = levelData.finish;
       ctx.fillStyle = '#e65100';  // Dark orange target.
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      ctx.fillStyle = '#444';     // Obstacles in dark gray.
+      ctx.fillStyle = '#444';     // Dark gray obstacles.
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
@@ -418,6 +486,7 @@
       ctx.fillStyle = '#2196F3';  // Blue ball.
       ctx.fill();
       ctx.closePath();
+      renderParticles();
     }
     
     /************************************
@@ -444,17 +513,38 @@
       }
       highScoreInfo.innerText = Math.max(score, storedHighScore);
       scoreInfo.innerText = score;
-      gameOverOverlay.style.display = 'flex';
-      setTimeout(() => {
-        score = 0;
-        currentLevel = 0;
-        loadLevel(currentLevel);
-        remainingTime = 10.0;
-        lastTime = performance.now();
-        gameRunning = true;
-        gameOverOverlay.style.display = 'none';
-        requestAnimationFrame(gameLoop);
-      }, 2000);
+      // Animate game over overlay appearance.
+      animateOverlay(gameOverOverlay, 0, 1, 500, () => {
+        setTimeout(() => {
+          animateOverlay(gameOverOverlay, 1, 0, 500, () => {
+            gameOverOverlay.style.display = 'none';
+            score = 0;
+            currentLevel = 0;
+            loadLevel(currentLevel);
+            remainingTime = 10.0;
+            lastTime = performance.now();
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+          });
+        }, 1500);
+      });
+    }
+    
+    // Animate overlay opacity.
+    function animateOverlay(overlay, start, end, duration, callback) {
+      let startTime = null;
+      overlay.style.display = 'flex';
+      function step(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let progress = Math.min((timestamp - startTime) / duration, 1);
+        overlay.style.opacity = start + progress * (end - start);
+        if (progress < 1) {
+          requestAnimationFrame(step);
+        } else if (callback) {
+          callback();
+        }
+      }
+      requestAnimationFrame(step);
     }
     
     /************************************
@@ -465,6 +555,7 @@
       gameRunning = false;
       pauseOverlay.style.display = 'flex';
       bgMusic.pause();
+      navigator.vibrate && navigator.vibrate(30);
     });
     resumeButton.addEventListener('click', () => {
       pauseOverlay.style.display = 'none';
@@ -483,7 +574,19 @@
       bgMusic.volume = volumeSlider.value;
     });
     sensitivitySlider.addEventListener('input', () => {
-      // The sensitivity variable is updated in the update() function.
+      // Updated on each frame.
+    });
+    themeSelect.addEventListener('change', () => {
+      let theme = themeSelect.value;
+      if (theme === 'orange-blue') {
+        document.body.style.background = 'linear-gradient(135deg, #ff9800, #2196f3)';
+      } else if (theme === 'light') {
+        document.body.style.background = 'linear-gradient(135deg, #f6f6f6, #e0e0e0)';
+      } else if (theme === 'dark') {
+        document.body.style.background = 'linear-gradient(135deg, #333, #555)';
+      }
+      document.body.style.backgroundSize = '200% 200%';
+      document.body.style.animation = 'bgAnimation 10s ease infinite';
     });
     
     /************************************
@@ -513,7 +616,7 @@
       startOverlay.style.display = 'none';
       requestDeviceMotionPermission();
       bgMusic.volume = volumeSlider.value;
-      bgMusic.play().catch(e => {}); // Some browsers block autoplay until user interaction.
+      bgMusic.play().catch(e => {});
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
@@ -523,8 +626,6 @@
     }
     
     startButton.addEventListener('click', startGame);
-    
-    // For iOS: request motion permission on first touch if needed.
     window.addEventListener('touchend', function iosRequest(e) {
       requestDeviceMotionPermission();
       window.removeEventListener('touchend', iosRequest);
