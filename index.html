@@ -31,7 +31,20 @@
       font-size: 1.1em;
       line-height: 1.5;
     }
-    /* Overlay Styles */
+    /* Instruction Overlay in the Corner */
+    .instruction-overlay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 8px 12px;
+      border-radius: 5px;
+      font-size: 0.9em;
+      line-height: 1.3;
+      transition: opacity 0.5s ease;
+    }
+    /* Overlay Styles for Game Over */
     .overlay {
       position: absolute;
       top: 0;
@@ -83,19 +96,8 @@
     <div>High Score: <span id="highScoreDisplay">0</span></div>
   </div>
 
-  <!-- Start/Instruction Overlay -->
-  <div id="startOverlay" class="overlay">
-    <h1>Maze Runner Extreme</h1>
-    <p>Welcome! Tilt your device to guide the red ball through the maze.</p>
-    <p><strong>Caution: Watch out for the edges!</strong> If the ball rolls off the screen, it’s game over.</p>
-    <p>Complete each level before time runs out. Your score increases with every level cleared.</p>
-    <button id="startButton">Start Game</button>
-  </div>
-
-  <!-- Level Complete Overlay -->
-  <div id="levelCompleteOverlay" class="overlay hidden">
-    <h1>Level Complete!</h1>
-  </div>
+  <!-- Instruction Overlay (appears in the top-right corner) -->
+  <div id="instructionOverlay" class="instruction-overlay"></div>
 
   <!-- Game Over Overlay -->
   <div id="gameOverOverlay" class="overlay hidden">
@@ -115,9 +117,7 @@
     const timerDisplay = document.getElementById('timerDisplay');
     const scoreDisplay = document.getElementById('scoreDisplay');
     const highScoreDisplay = document.getElementById('highScoreDisplay');
-    const startOverlay = document.getElementById('startOverlay');
-    const startButton = document.getElementById('startButton');
-    const levelCompleteOverlay = document.getElementById('levelCompleteOverlay');
+    const instructionOverlay = document.getElementById('instructionOverlay');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const finalScoreDisplay = document.getElementById('finalScore');
     const finalHighScoreDisplay = document.getElementById('finalHighScore');
@@ -136,7 +136,7 @@
     resizeCanvas();
 
     // Game state variables
-    let gameState = 'start'; // 'start', 'playing', 'levelComplete', 'gameOver'
+    let gameState = 'playing'; // 'playing', 'levelComplete', 'gameOver'
     let currentLevelIndex = 0;
     let levels = [];          // Array of level definitions (using relative coordinates)
     let currentLevelData = null;  // Absolute positions for finish area & walls
@@ -417,6 +417,8 @@
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
+    // Start listening immediately
+    window.addEventListener('deviceorientation', handleOrientation);
 
     /************************************
      * Collision Detection (Circle vs. Rectangle)
@@ -466,13 +468,10 @@
           ball.y > f.y && ball.y < f.y + f.height) {
         gameState = 'levelComplete';
         score += 1;
-        levelCompleteOverlay.classList.remove('hidden');
         // After a short pause, load the next level or finish the game.
         setTimeout(() => {
-          levelCompleteOverlay.classList.add('hidden');
           currentLevelIndex++;
           if (currentLevelIndex >= levels.length) {
-            // All levels complete: end the game.
             gameOver(true);
           } else {
             loadLevel(currentLevelIndex);
@@ -539,6 +538,8 @@
     function restartGame() {
       gameOverOverlay.classList.add('hidden');
       initGame();
+      // Restart instruction overlay sequence
+      showInstructions();
     }
 
     /************************************
@@ -553,35 +554,41 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // Request device orientation permission (for iOS 13+).
-    function startGame() {
-      if (typeof DeviceOrientationEvent !== 'undefined' &&
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation);
-              initGame();
-            } else {
-              alert('Device orientation permission denied.');
-            }
-          })
-          .catch(console.error);
+    /************************************
+     * Instruction Sequence (Corner Popup)
+     ************************************/
+    const instructions = [
+      "Welcome! Tilt your device to guide the red ball.",
+      "Caution: Watch out for the edges! If the ball rolls off the screen, it’s game over.",
+      "Complete each level before time runs out. Your score increases with every level cleared."
+    ];
+    let instructionIndex = 0;
+    function showInstructions() {
+      instructionIndex = 0;
+      instructionOverlay.style.display = 'block';
+      nextInstruction();
+    }
+    function nextInstruction() {
+      if (instructionIndex < instructions.length) {
+        instructionOverlay.textContent = instructions[instructionIndex];
+        instructionIndex++;
+        setTimeout(nextInstruction, 2000);
       } else {
-        window.addEventListener('deviceorientation', handleOrientation);
-        initGame();
+        instructionOverlay.style.opacity = 0;
+        setTimeout(() => {
+          instructionOverlay.style.display = 'none';
+          instructionOverlay.style.opacity = 1; // reset opacity for future restarts if needed
+        }, 500);
       }
     }
 
-    // Helper function to handle start (for both click and touchend).
-    function startGameHandler() {
-      startOverlay.classList.add('hidden');
-      startGame();
-    }
+    // Start game immediately once the page loads.
+    window.addEventListener('load', () => {
+      initGame();
+      showInstructions();
+    });
 
-    // Event Listeners for Start & Restart Buttons.
-    startButton.addEventListener('click', startGameHandler);
-    startButton.addEventListener('touchend', startGameHandler);
+    // Event Listeners for Restart Button.
     restartButton.addEventListener('click', restartGame);
     restartButton.addEventListener('touchend', restartGame);
   </script>
