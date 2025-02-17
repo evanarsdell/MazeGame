@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Global Reset & Theme */
+    /* Global Reset & Theme (Orange & Blue) */
     * {
       margin: 0;
       padding: 0;
@@ -16,9 +16,9 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
-    /* Animated Orange Gradient Background */
+    /* Animated Orange-to-Blue Gradient Background */
     body {
-      background: linear-gradient(135deg, #ffcc80, #ff9800);
+      background: linear-gradient(135deg, #ff9800, #2196f3);
       background-size: 200% 200%;
       animation: bgAnimation 10s ease infinite;
       color: #333;
@@ -28,7 +28,7 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas for Game Drawing */
+    /* Canvas for Game */
     #gameCanvas {
       display: block;
       background: #fff;
@@ -47,8 +47,8 @@
       font-size: 20px;
       z-index: 10;
     }
-    /* Modern Start Overlay with Instructions */
-    #startOverlay {
+    /* Start Overlay with Instructions */
+    #startOverlay, #pauseOverlay, #settingsOverlay, #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
@@ -73,7 +73,10 @@
       margin-bottom: 30px;
       color: #333;
     }
-    #startOverlay button {
+    #startOverlay button,
+    #pauseOverlay button,
+    #settingsOverlay button,
+    #gameOverOverlay button {
       padding: 15px 25px;
       font-size: 22px;
       background: #ff9800;
@@ -83,32 +86,42 @@
       cursor: pointer;
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
       transition: background 0.3s ease, transform 0.2s ease;
+      margin-top: 20px;
     }
-    #startOverlay button:hover {
+    #startOverlay button:hover,
+    #pauseOverlay button:hover,
+    #settingsOverlay button:hover,
+    #gameOverOverlay button:hover {
       background: #e68900;
       transform: scale(1.05);
     }
-    /* Sleek Game Over Overlay */
+    /* Pause Overlay */
+    #pauseOverlay {
+      display: none;
+      background: rgba(255,255,255,0.95);
+    }
+    /* Settings Overlay */
+    #settingsOverlay {
+      display: none;
+      background: rgba(255,255,255,0.95);
+    }
+    /* Game Over Overlay - Sleek and Modern */
     #gameOverOverlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      display: none;
       background: rgba(0,0,0,0.9);
-      display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      text-align: center;
       padding: 40px;
-      z-index: 30;
-      display: none;
+      border-top: 6px solid #ff9800;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+      font-size: 36px;
+      color: #ffcc80;
     }
     #gameOverOverlay h1 {
       font-size: 48px;
       margin-bottom: 20px;
-      color: #ffcc80;
+      color: #2196f3;
     }
     #gameOverOverlay .score-line {
       font-size: 28px;
@@ -119,29 +132,70 @@
       font-weight: bold;
     }
     #gameOverOverlay .score-line .highScore {
-      color: #ff9800;
+      color: #2196f3;
       font-weight: bold;
+    }
+    /* Pause Button (added to body dynamically) */
+    #pauseButton {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      font-size: 18px;
+      background: #2196f3;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
+      z-index: 15;
     }
   </style>
 </head>
 <body>
+  <!-- Background Music -->
+  <audio id="bgMusic" loop>
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+  </audio>
+  
   <!-- Start Overlay with Instructions -->
   <div id="startOverlay">
     <h1>Maze Runner</h1>
     <p>Hold your phone flat. Tilt slowly to guide the ball into the target.<br>
-       Make sure the ball does not leave the screen!</p>
+       Make sure the ball does not go off the screen!</p>
     <button id="startButton">Start Game</button>
   </div>
   
+  <!-- Game Canvas -->
   <canvas id="gameCanvas"></canvas>
+  
+  <!-- HUD -->
   <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
+    <div>Score: <span id="scoreDisplay">0</span></div>
   </div>
+  
+  <!-- Pause Overlay -->
+  <div id="pauseOverlay">
+    <h1>Paused</h1>
+    <button id="resumeButton">Resume</button>
+    <button id="settingsButton">Settings</button>
+  </div>
+  
+  <!-- Settings Overlay -->
+  <div id="settingsOverlay">
+    <h1>Settings</h1>
+    <p>Volume: <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5"></p>
+    <p>Sensitivity: <input type="range" id="sensitivitySlider" min="0.01" max="0.1" step="0.005" value="0.05"></p>
+    <button id="closeSettingsButton">Close</button>
+  </div>
+  
+  <!-- Game Over Overlay -->
   <div id="gameOverOverlay">
     <h1>Game Over!</h1>
     <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
     <div class="score-line">High Score: <span class="highScore" id="highScoreInfo">0</span></div>
+    <button id="restartButton">Restart</button>
   </div>
   
   <script>
@@ -152,11 +206,23 @@
     const ctx = canvas.getContext('2d');
     const levelDisplay = document.getElementById('levelDisplay');
     const timerDisplay = document.getElementById('timerDisplay');
+    const scoreDisplay = document.getElementById('scoreDisplay');
     const startOverlay = document.getElementById('startOverlay');
     const startButton = document.getElementById('startButton');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const resumeButton = document.getElementById('resumeButton');
+    const settingsButton = document.getElementById('settingsButton');
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const sensitivitySlider = document.getElementById('sensitivitySlider');
+    const closeSettingsButton = document.getElementById('closeSettingsButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
     const highScoreInfo = document.getElementById('highScoreInfo');
+    const bgMusic = document.getElementById('bgMusic');
+    
+    // Set initial background music volume.
+    bgMusic.volume = volumeSlider.value;
     
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -176,10 +242,10 @@
     
     // Tilt values.
     let tilt = { x: 0, y: 0 };
-    const accelerationFactor = 0.05;
+    let sensitivity = parseFloat(sensitivitySlider.value);
     const friction = 0.98;
     
-    // Game state.
+    // Game state variables.
     let currentLevel = 0;  // Displayed as currentLevel+1.
     let levelData;         // Contains absolute positions for finish and walls.
     let remainingTime = 10.0;
@@ -249,6 +315,7 @@
         remainingTime = 10.0;
       }
       levelDisplay.textContent = levelNumber + 1;
+      scoreDisplay.textContent = score;
     }
     
     /************************************
@@ -278,8 +345,9 @@
      * Game Update Logic
      ************************************/
     function update(delta) {
-      ball.vx += tilt.x * accelerationFactor;
-      ball.vy += tilt.y * accelerationFactor;
+      sensitivity = parseFloat(sensitivitySlider.value);
+      ball.vx += tilt.x * sensitivity;
+      ball.vy += tilt.y * sensitivity;
       ball.vx *= friction;
       ball.vy *= friction;
       ball.x += ball.vx;
@@ -327,18 +395,15 @@
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let finish = levelData.finish;
-      // Target square: Dark orange.
-      ctx.fillStyle = '#e65100';
+      ctx.fillStyle = '#e65100';  // Dark orange target.
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      // Walls: dark gray.
-      ctx.fillStyle = '#444';
+      ctx.fillStyle = '#444';     // Dark gray obstacles.
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
-      // Ball: Blue.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.fillStyle = '#2196F3';
+      ctx.fillStyle = '#2196F3';  // Blue ball.
       ctx.fill();
       ctx.closePath();
     }
@@ -399,6 +464,9 @@
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
       }
+      // Start background music.
+      bgMusic.volume = volumeSlider.value;
+      bgMusic.play().catch(e => { /* autoplay might be blocked until user interaction */ });
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
@@ -408,6 +476,60 @@
     }
     
     startButton.addEventListener('click', startGame);
+    
+    /************************************
+     * Pause & Settings Functionality
+     ************************************/
+    // Create a pause button in the top-right corner.
+    const pauseButton = document.createElement('button');
+    pauseButton.id = 'pauseButton';
+    pauseButton.innerText = 'Pause';
+    document.body.appendChild(pauseButton);
+    pauseButton.addEventListener('click', () => {
+      if (!gameRunning) return;
+      gameRunning = false;
+      pauseOverlay.style.display = 'flex';
+      bgMusic.pause();
+    });
+    
+    // Resume Button.
+    resumeButton && resumeButton.addEventListener('click', () => {
+      pauseOverlay.style.display = 'none';
+      gameRunning = true;
+      lastTime = performance.now();
+      requestAnimationFrame(gameLoop);
+      bgMusic.play();
+    });
+    
+    // Open Settings.
+    settingsButton && settingsButton.addEventListener('click', () => {
+      settingsOverlay.style.display = 'flex';
+    });
+    
+    // Close Settings.
+    closeSettingsButton && closeSettingsButton.addEventListener('click', () => {
+      settingsOverlay.style.display = 'none';
+    });
+    
+    // Update background music volume when slider changes.
+    volumeSlider.addEventListener('input', () => {
+      bgMusic.volume = volumeSlider.value;
+    });
+    
+    // For iOS, request permission on first touch.
+    window.addEventListener('touchend', function iosRequest(e) {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation);
+            }
+          })
+          .catch(console.error);
+      }
+      window.removeEventListener('touchend', iosRequest);
+    });
   </script>
 </body>
 </html>
