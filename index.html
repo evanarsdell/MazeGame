@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Bright, Modern Background with Subtle Animation */
+    /* Global Styles & Animated Background */
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      background: linear-gradient(135deg, #f6d365, #fda085);
-      background-size: 400% 400%;
-      animation: gradientBG 15s ease infinite;
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      background-size: 200% 200%;
+      animation: gradientBG 10s ease infinite;
+      -webkit-font-smoothing: antialiased;
       color: #333;
     }
     @keyframes gradientBG {
@@ -21,64 +22,89 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas with crisp white background for drawing */
+    /* Canvas Styling */
     #gameCanvas {
       display: block;
       background: #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
-    /* Clean HUD styling with semi-transparent white background */
+    /* HUD Styling */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
       z-index: 10;
-      font-size: 22px;
-      line-height: 1.6;
-      background: rgba(255,255,255,0.9);
+      font-size: 20px;
       padding: 10px 15px;
+      background: rgba(0, 0, 0, 0.6);
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      color: #fff;
     }
-    /* Modern Start Button */
+    #hud div {
+      margin-bottom: 5px;
+    }
+    /* Start Button Styling */
     #startButton {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      padding: 20px 30px;
+      padding: 20px 40px;
       font-size: 24px;
-      background: #4caf50;
+      background: #ff7043;
       color: #fff;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.3);
       cursor: pointer;
-      transition: background 0.3s ease;
+      transition: background 0.3s ease, transform 0.3s ease;
       z-index: 20;
     }
     #startButton:hover {
-      background: #43a047;
+      background: #ff5722;
+      transform: translate(-50%, -50%) scale(1.05);
     }
-    /* Sleek Game Over Overlay */
+    /* Game Over Overlay Styling */
     #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(30,30,30,0.9));
-      color: #f9f9f9;
+      background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(240,240,240,0.95));
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      font-size: 48px;
       z-index: 30;
       text-align: center;
       padding: 40px;
-      border-top: 6px solid #e91e63;
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+      border-top: 6px solid #ff5722;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
       display: none;
+      color: #333;
+    }
+    #gameOverOverlay h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+    #gameOverOverlay p {
+      font-size: 22px;
+      margin-bottom: 30px;
+    }
+    #gameOverOverlay button {
+      padding: 15px 30px;
+      font-size: 22px;
+      background: #ff7043;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    #gameOverOverlay button:hover {
+      background: #ff5722;
     }
   </style>
 </head>
@@ -90,10 +116,11 @@
   </div>
   <button id="startButton">Start Game</button>
   <div id="gameOverOverlay">
-    Game Over!<br>
-    <span id="scoreInfo"></span>
+    <h1>Game Over!</h1>
+    <p id="scoreInfo"></p>
+    <button id="restartButton">Restart</button>
   </div>
-
+  
   <script>
     /************************************
      * Global Variables and Setup
@@ -105,6 +132,7 @@
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
+    const restartButton = document.getElementById('restartButton');
     
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -113,7 +141,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // Ball controlled by the player.
+    // The ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -122,14 +150,14 @@
       vy: 0
     };
     
-    // Tilt values.
+    // Tilt values from device orientation.
     let tilt = { x: 0, y: 0 };
     const accelerationFactor = 0.05;
     const friction = 0.98;
     
     // Game state variables.
-    let currentLevel = 0;  // Levels displayed as currentLevel + 1.
-    let levelData;         // Contains absolute positions for finish & walls.
+    let currentLevel = 0; // Levels displayed as currentLevel+1.
+    let levelData;        // Contains absolute positions for finish and walls.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -223,7 +251,7 @@
     }
     
     /************************************
-     * Game Update Logic (Refactored)
+     * Game Update Logic
      ************************************/
     function update(delta) {
       ball.vx += tilt.x * accelerationFactor;
@@ -233,7 +261,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check if the ball's center enters the finish area.
+      // Check finish area (ball's center enters the target).
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -243,7 +271,7 @@
         return;
       }
       
-      // Only trigger game over if the entire ball is off-screen.
+      // Trigger game over only if the entire ball is off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -252,7 +280,7 @@
         return;
       }
       
-      // Check collisions with walls and gently bounce.
+      // Check collisions with walls and apply a gentle bounce.
       let prevX = ball.x - ball.vx;
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
@@ -277,16 +305,14 @@
      ************************************/
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Draw finish area.
       let finish = levelData.finish;
       ctx.fillStyle = 'green';
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      // Draw walls (changed from white to dark gray).
+      // Obstacles are now dark gray for contrast.
       ctx.fillStyle = '#333';
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
-      // Draw the ball.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = 'red';
@@ -316,7 +342,7 @@
       if (score > storedHighScore) {
         localStorage.setItem('mazeHighScore', score);
       }
-      gameOverOverlay.innerText = `Game Over!\nScore: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
+      scoreInfo.innerText = `Score: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
       gameOverOverlay.style.display = 'flex';
       setTimeout(() => {
         // Reset score and level.
@@ -360,6 +386,15 @@
     }
     
     startButton.addEventListener('click', startGame);
+    restartButton.addEventListener('click', () => {
+      gameOverOverlay.style.display = 'none';
+      startGame();
+    });
+    restartButton.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      gameOverOverlay.style.display = 'none';
+      startGame();
+    });
   </script>
 </body>
 </html>
