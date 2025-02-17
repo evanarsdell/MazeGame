@@ -3,103 +3,80 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Infinite Maze Runner</title>
+  <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Basic reset and styling */
+    /* Basic Reset & Crisp UI Styling */
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: #000;
-      color: #fff;
-      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
-    /* Canvas where the game is drawn */
+    /* Canvas for game drawing */
     #gameCanvas {
       display: block;
       background: #222;
     }
-    /* HUD for level, timer, and score */
+    /* HUD styling */
     #hud {
       position: absolute;
       top: 10px;
       left: 10px;
       z-index: 10;
-      font-size: 20px;
-      line-height: 1.5;
+      font-size: 22px;
+      line-height: 1.6;
+      text-shadow: 1px 1px 2px #000;
     }
-    /* Instruction message (appears in the upper-right corner) */
-    #instructionMsg {
+    /* Start Button Styling */
+    #startButton {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0,0,0,0.7);
-      padding: 8px 12px;
-      border-radius: 5px;
-      font-size: 0.9em;
-      z-index: 15;
-      opacity: 1;
-      transition: opacity 1s ease;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 30px;
+      font-size: 22px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+      z-index: 20;
+      transition: background 0.3s ease;
     }
-    /* Game Over overlay */
+    #startButton:hover {
+      background: #218838;
+    }
+    /* Game Over Overlay Styling */
     #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0,0,0,0.85);
-      color: red;
+      background: rgba(0, 0, 0, 0.85);
+      color: #ff5555;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      font-size: 40px;
+      font-size: 42px;
       z-index: 30;
-      text-align: center;
-      padding: 20px;
       display: none;
-    }
-    #gameOverOverlay p {
-      font-size: 1.2em;
-      margin: 10px 0;
-    }
-    #gameOverOverlay button {
-      padding: 15px 25px;
-      font-size: 1.2em;
-      background: #28a745;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 20px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  
-  <!-- HUD displaying current level, time, and score -->
   <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
-    <div>Score: <span id="scoreDisplay">0</span></div>
   </div>
-
-  <!-- Instruction message (briefly shown on load) -->
-  <div id="instructionMsg">
-    <p>Tilt your device to move the red ball.<br>
-    Reach the green target for 100 points.<br>
-    Don't let the ball leave the screen or time run out!</p>
-  </div>
-
-  <!-- Game Over Overlay -->
-  <div id="gameOverOverlay">
-    <h1>Game Over!</h1>
-    <p>Your Score: <span id="finalScore">0</span></p>
-    <p>High Score: <span id="finalHighScore">0</span></p>
-    <button id="restartButton">Restart</button>
-  </div>
+  <button id="startButton">Start Game</button>
+  <div id="gameOverOverlay">Game Over!</div>
 
   <script>
     /************************************
@@ -109,25 +86,17 @@
     const ctx = canvas.getContext('2d');
     const levelDisplay = document.getElementById('levelDisplay');
     const timerDisplay = document.getElementById('timerDisplay');
-    const scoreDisplay = document.getElementById('scoreDisplay');
-    const instructionMsg = document.getElementById('instructionMsg');
+    const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
-    const finalScoreDisplay = document.getElementById('finalScore');
-    const finalHighScoreDisplay = document.getElementById('finalHighScore');
-    const restartButton = document.getElementById('restartButton');
 
-    let canvasWidth, canvasHeight;
     function resizeCanvas() {
-      canvasWidth = window.innerWidth;
-      canvasHeight = window.innerHeight;
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      if (currentLevelData) loadLevel(currentLevel);
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Ball controlled by the player.
+    // The ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -141,31 +110,34 @@
     const accelerationFactor = 0.05;
     const friction = 0.98;
 
-    // Game state.
-    let currentLevel = 0; // 0-indexed (displayed as currentLevel+1)
-    let currentLevelData = null;
-    let remainingTime = 10.0;
-    let lastTime = 0;
+    // Game state variables.
+    let currentLevel = 0;  // For display, levels are numbered currentLevel+1.
+    let levelData;         // Contains absolute coordinates for finish and walls.
+    let remainingTime = 10.0; // Seconds countdown per level.
+    let lastTime;          // For tracking frame time.
     let gameRunning = false;
-    let score = 0;
-    let highScore = parseInt(localStorage.getItem('mazeHighScore')) || 0;
-
+    
     /************************************
-     * Infinite Level Generation (Random Levels)
+     * Infinite Level Generation
      ************************************/
+    // Generate a random level. Start and finish positions are chosen based on a coin flip.
+    // Walls are generated randomly (with number increasing with level number).
     function generateRandomLevel(levelNumber) {
+      // Choose start and finish positions.
       let swap = Math.random() < 0.5;
       let start = swap ? { x: 0.8, y: 0.8 } : { x: 0.1, y: 0.1 };
       let finish = swap ? { x: 0.1, y: 0.1 } : { x: 0.8, y: 0.8 };
+      // Add a slight random variation.
       start.x += (Math.random() - 0.5) * 0.05;
       start.y += (Math.random() - 0.5) * 0.05;
       finish.x += (Math.random() - 0.5) * 0.05;
       finish.y += (Math.random() - 0.5) * 0.05;
       finish.width = 0.1;
       finish.height = 0.1;
-
+      
+      // Generate random walls.
       let walls = [];
-      let numWalls = Math.min(10, 3 + Math.floor(levelNumber / 3));
+      let numWalls = Math.min(10, 3 + Math.floor(currentLevel / 2)); // More walls as level increases.
       let attempts = 0;
       while (walls.length < numWalls && attempts < numWalls * 10) {
         attempts++;
@@ -175,6 +147,7 @@
           width: Math.random() * 0.08 + 0.02,
           height: Math.random() * 0.08 + 0.02
         };
+        // Ensure walls stay within boundaries.
         if (wall.x + wall.width > 0.9) wall.width = 0.9 - wall.x;
         if (wall.y + wall.height > 0.9) wall.height = 0.9 - wall.y;
         let buffer = 0.12;
@@ -188,9 +161,23 @@
       return { start, finish, walls };
     }
 
+    // Loads the given level (using random generation) and converts relative positions to absolute.
     function loadLevel(levelNumber, reset = true) {
       let level = generateRandomLevel(levelNumber);
-      currentLevelData = level;
+      levelData = {
+        finish: {
+          x: level.finish.x * canvas.width,
+          y: level.finish.y * canvas.height,
+          width: level.finish.width * canvas.width,
+          height: level.finish.height * canvas.height
+        },
+        walls: level.walls.map(w => ({
+          x: w.x * canvas.width,
+          y: w.y * canvas.height,
+          width: w.width * canvas.width,
+          height: w.height * canvas.height
+        }))
+      };
       if (reset) {
         ball.x = level.start.x * canvas.width;
         ball.y = level.start.y * canvas.height;
@@ -199,39 +186,24 @@
         remainingTime = 10.0;
       }
       levelDisplay.textContent = levelNumber + 1;
-      scoreDisplay.textContent = score;
     }
 
     /************************************
      * Device Orientation Handling
      ************************************/
     function handleOrientation(event) {
+      // event.gamma: left-right tilt; event.beta: front-back tilt.
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
     // For non-iOS devices, add listener immediately.
-    if (window.DeviceOrientationEvent && 
+    if (window.DeviceOrientationEvent &&
         typeof DeviceOrientationEvent.requestPermission !== 'function') {
       window.addEventListener('deviceorientation', handleOrientation);
-    } else {
-      // For iOS, request permission on first touch.
-      window.addEventListener('touchend', function requestPermissionOnce(e) {
-        if (typeof DeviceOrientationEvent !== 'undefined' &&
-            typeof DeviceOrientationEvent.requestPermission === 'function') {
-          DeviceOrientationEvent.requestPermission()
-            .then(response => {
-              if (response === 'granted') {
-                window.addEventListener('deviceorientation', handleOrientation);
-              }
-            })
-            .catch(console.error);
-        }
-        window.removeEventListener('touchend', requestPermissionOnce);
-      });
     }
 
     /************************************
-     * Collision Detection (Circle vs. Rectangle)
+     * Collision Detection
      ************************************/
     function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
       let closestX = Math.max(rx, Math.min(cx, rx + rw));
@@ -254,7 +226,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
 
-      // If ball completely leaves canvas, game over.
+      // Check if ball completely leaves the screen.
       if ((ball.x + ball.radius < 0) ||
           (ball.x - ball.radius > canvas.width) ||
           (ball.y + ball.radius < 0) ||
@@ -263,13 +235,9 @@
         return;
       }
 
-      // Check collisions with walls.
-      for (let wall of currentLevelData.walls) {
-        let wx = wall.x * canvas.width;
-        let wy = wall.y * canvas.height;
-        let ww = wall.width * canvas.width;
-        let wh = wall.height * canvas.height;
-        if (circleRectCollision(ball.x, ball.y, ball.radius, wx, wy, ww, wh)) {
+      // Collision detection with walls.
+      for (let wall of levelData.walls) {
+        if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
           ball.x = prevX;
           ball.y = prevY;
           ball.vx = 0;
@@ -279,18 +247,19 @@
       }
 
       // Check if ball reaches finish area.
-      let finish = currentLevelData.finish;
-      let fx = finish.x * canvas.width;
-      let fy = finish.y * canvas.height;
-      let fw = finish.width * canvas.width;
-      let fh = finish.height * canvas.height;
-      if (ball.x > fx && ball.x < fx + fw &&
-          ball.y > fy && ball.y < fy + fh) {
+      let finish = levelData.finish;
+      if (ball.x > finish.x &&
+          ball.x < finish.x + finish.width &&
+          ball.y > finish.y &&
+          ball.y < finish.y + finish.height) {
+        // Award 100 points and generate the next level.
+        // (Infinite levels: simply increment currentLevel.)
         score += 100;
         currentLevel++;
         loadLevel(currentLevel);
       }
 
+      // Update countdown timer.
       remainingTime -= delta / 1000;
       if (remainingTime <= 0) {
         gameOver();
@@ -303,15 +272,16 @@
      ************************************/
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      let finish = currentLevelData.finish;
+      // Draw finish area.
+      let finish = levelData.finish;
       ctx.fillStyle = 'green';
-      ctx.fillRect(finish.x * canvas.width, finish.y * canvas.height, 
-                   finish.width * canvas.width, finish.height * canvas.height);
+      ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
+      // Draw walls.
       ctx.fillStyle = 'white';
-      currentLevelData.walls.forEach(wall => {
-        ctx.fillRect(wall.x * canvas.width, wall.y * canvas.height,
-                     wall.width * canvas.width, wall.height * canvas.height);
+      levelData.walls.forEach(wall => {
+        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
+      // Draw the ball.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = 'red';
@@ -320,7 +290,7 @@
     }
 
     /************************************
-     * Main Game Loop
+     * Main Game Loop using requestAnimationFrame
      ************************************/
     function gameLoop(timestamp) {
       if (!gameRunning) return;
@@ -333,69 +303,58 @@
     }
 
     /************************************
-     * Game Over & Restart Handling
+     * Game Over Handling
      ************************************/
     function gameOver() {
       gameRunning = false;
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('mazeHighScore', highScore);
+      // Update high score if necessary.
+      let storedHighScore = parseInt(localStorage.getItem('mazeHighScore')) || 0;
+      if (score > storedHighScore) {
+        localStorage.setItem('mazeHighScore', score);
       }
-      finalScoreDisplay.textContent = score;
-      finalHighScoreDisplay.textContent = highScore;
+      gameOverOverlay.textContent = `Game Over!\nScore: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
       gameOverOverlay.style.display = 'flex';
       setTimeout(() => {
         gameOverOverlay.style.display = 'none';
-        initGame();
+        loadLevel(currentLevel);
+        lastTime = performance.now();
+        gameRunning = true;
+        requestAnimationFrame(gameLoop);
       }, 2000);
     }
 
-    function initGame() {
-      score = 0;
-      currentLevel = 0;
-      loadLevel(currentLevel);
-      remainingTime = 10.0;
-      lastTime = performance.now();
-      gameRunning = true;
-      requestAnimationFrame(gameLoop);
-      // Fade out instruction message after 3 seconds.
-      setTimeout(() => {
-        instructionMsg.style.opacity = 0;
-        setTimeout(() => { instructionMsg.style.display = 'none'; }, 1000);
-      }, 3000);
-    }
-
     /************************************
-     * Auto-Start on Page Load
+     * Starting the Game
      ************************************/
-    window.addEventListener('load', () => {
-      // Remove the start overlay immediately.
-      startOverlay.style.display = 'none';
-      // For iOS, if permission is needed, wait for first touch.
+    function startGame() {
+      // Hide the start button.
+      startButton.style.display = 'none';
+
+      // Request device orientation permission on iOS 13+.
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
-        // Wait for a single touch to request permission.
-        window.addEventListener('touchend', function iosRequest(e) {
-          DeviceOrientationEvent.requestPermission()
-            .then(response => {
-              if (response === 'granted') {
-                window.addEventListener('deviceorientation', handleOrientation);
-              }
-            })
-            .catch(console.error);
-          window.removeEventListener('touchend', iosRequest);
-          // Start the game after permission is requested.
-          initGame();
-        });
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+              alert("Permission for device orientation was denied.");
+            }
+          })
+          .catch(console.error);
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
-        initGame();
       }
-    });
 
-    // Restart button listeners.
-    restartButton.addEventListener('click', (e) => { e.preventDefault(); gameOverOverlay.style.display = 'none'; initGame(); });
-    restartButton.addEventListener('touchend', (e) => { e.preventDefault(); gameOverOverlay.style.display = 'none'; initGame(); });
+      // Load the first level and start the game loop.
+      loadLevel(currentLevel);
+      gameRunning = true;
+      lastTime = performance.now();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Attach event listener to the start button.
+    startButton.addEventListener('click', startGame);
   </script>
 </body>
 </html>
