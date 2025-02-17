@@ -120,7 +120,7 @@
       <li>Reach the green target to complete the level.</li>
       <li>Each level completion awards 100 points.</li>
       <li>If the ball completely leaves the screen or time runs out, the game is over.</li>
-      <li>The levels are generated randomly and increase in difficulty.</li>
+      <li>Levels are randomly generated and increase in difficulty.</li>
     </ul>
     <button id="startButton">Start Game</button>
   </div>
@@ -155,7 +155,6 @@
       canvasHeight = window.innerHeight;
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
-      // Reload current level to update absolute positions.
       if (currentLevelData) loadLevel(currentLevel);
     }
     window.addEventListener('resize', resizeCanvas);
@@ -176,35 +175,29 @@
     const friction = 0.98;
 
     // Game state variables.
-    let currentLevel = 0; // Level count (0-indexed; displayed as currentLevel+1)
-    let currentLevelData = null; // Holds generated level (start, finish, walls)
-    let remainingTime = 10.0; // Seconds per level.
+    let currentLevel = 0; // 0-indexed (displayed as currentLevel+1)
+    let currentLevelData = null;
+    let remainingTime = 10.0;
     let lastTime = 0;
     let gameRunning = false;
     let score = 0;
     let highScore = parseInt(localStorage.getItem('mazeHighScore')) || 0;
 
     /************************************
-     * Level Generation (Infinite Levels)
+     * Infinite Level Generation (Random Levels)
      ************************************/
-    // This function generates a random level. The difficulty increases with level number.
     function generateRandomLevel(levelNumber) {
-      // Randomly decide if start is top-left and finish is bottom-right, or vice versa.
       let swap = Math.random() < 0.5;
       let start = swap ? { x: 0.8, y: 0.8 } : { x: 0.1, y: 0.1 };
       let finish = swap ? { x: 0.1, y: 0.1 } : { x: 0.8, y: 0.8 };
-      // Add slight random jitter.
       start.x += (Math.random() - 0.5) * 0.05;
       start.y += (Math.random() - 0.5) * 0.05;
       finish.x += (Math.random() - 0.5) * 0.05;
       finish.y += (Math.random() - 0.5) * 0.05;
-      // Fixed target size.
       finish.width = 0.1;
       finish.height = 0.1;
 
-      // Generate random walls.
       let walls = [];
-      // Increase number of walls with level difficulty.
       let numWalls = Math.min(10, 3 + Math.floor(levelNumber / 3));
       let attempts = 0;
       while (walls.length < numWalls && attempts < numWalls * 10) {
@@ -215,10 +208,8 @@
           width: Math.random() * 0.08 + 0.02,
           height: Math.random() * 0.08 + 0.02
         };
-        // Ensure wall is within [0.1, 0.9] boundaries.
         if (wall.x + wall.width > 0.9) wall.width = 0.9 - wall.x;
         if (wall.y + wall.height > 0.9) wall.height = 0.9 - wall.y;
-        // Simple check to avoid blocking start or finish.
         let buffer = 0.12;
         function overlaps(point, wall) {
           return (point.x > wall.x - buffer && point.x < wall.x + wall.width + buffer &&
@@ -230,7 +221,6 @@
       return { start, finish, walls };
     }
 
-    // Load the current level (using random generation).
     function loadLevel(levelNumber, reset = true) {
       let level = generateRandomLevel(levelNumber);
       currentLevelData = level;
@@ -242,7 +232,6 @@
         remainingTime = 10.0;
       }
       levelDisplay.textContent = levelNumber + 1;
-      // Update HUD score.
       scoreDisplay.textContent = score;
     }
 
@@ -250,17 +239,13 @@
      * Device Orientation Handling
      ************************************/
     function handleOrientation(event) {
-      // event.gamma: left/right tilt; event.beta: front/back tilt.
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
-    // Start listening immediately.
-    if (window.DeviceOrientationEvent) {
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        // For iOS 13+ (permission required). We'll request permission on Start button click.
-      } else {
-        window.addEventListener('deviceorientation', handleOrientation);
-      }
+    // For non-iOS devices.
+    if (window.DeviceOrientationEvent && 
+        typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      window.addEventListener('deviceorientation', handleOrientation);
     }
 
     /************************************
@@ -278,7 +263,6 @@
      * Game Update Logic
      ************************************/
     function update(delta) {
-      // Update ball velocity based on device tilt.
       ball.vx += tilt.x * accelerationFactor;
       ball.vy += tilt.y * accelerationFactor;
       ball.vx *= friction;
@@ -288,7 +272,6 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
 
-      // Perimeter check: if ball completely leaves canvas, game over.
       if ((ball.x + ball.radius < 0) ||
           (ball.x - ball.radius > canvas.width) ||
           (ball.y + ball.radius < 0) ||
@@ -297,15 +280,12 @@
         return;
       }
 
-      // Collision detection with each wall.
       for (let wall of currentLevelData.walls) {
-        // Convert wall's relative positions to absolute.
         let wx = wall.x * canvas.width;
         let wy = wall.y * canvas.height;
         let ww = wall.width * canvas.width;
         let wh = wall.height * canvas.height;
         if (circleRectCollision(ball.x, ball.y, ball.radius, wx, wy, ww, wh)) {
-          // On collision, revert to previous position and reset velocity.
           ball.x = prevX;
           ball.y = prevY;
           ball.vx = 0;
@@ -314,7 +294,6 @@
         }
       }
 
-      // Check if ball reaches the finish area.
       let finish = currentLevelData.finish;
       let fx = finish.x * canvas.width;
       let fy = finish.y * canvas.height;
@@ -322,13 +301,11 @@
       let fh = finish.height * canvas.height;
       if (ball.x > fx && ball.x < fx + fw &&
           ball.y > fy && ball.y < fy + fh) {
-        // Level complete: award 100 points, then generate next level.
         score += 100;
         currentLevel++;
         loadLevel(currentLevel);
       }
 
-      // Update countdown timer.
       remainingTime -= delta / 1000;
       if (remainingTime <= 0) {
         gameOver();
@@ -341,18 +318,15 @@
      ************************************/
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Draw finish area.
       let finish = currentLevelData.finish;
       ctx.fillStyle = 'green';
       ctx.fillRect(finish.x * canvas.width, finish.y * canvas.height, 
                    finish.width * canvas.width, finish.height * canvas.height);
-      // Draw walls.
       ctx.fillStyle = 'white';
       currentLevelData.walls.forEach(wall => {
         ctx.fillRect(wall.x * canvas.width, wall.y * canvas.height,
                      wall.width * canvas.width, wall.height * canvas.height);
       });
-      // Draw the ball.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = 'red';
@@ -378,7 +352,6 @@
      ************************************/
     function gameOver() {
       gameRunning = false;
-      // Update high score if current score is greater.
       if (score > highScore) {
         highScore = score;
         localStorage.setItem('mazeHighScore', highScore);
@@ -386,7 +359,6 @@
       finalScoreDisplay.textContent = score;
       finalHighScoreDisplay.textContent = highScore;
       gameOverOverlay.style.display = 'flex';
-      // After a short pause, restart the game.
       setTimeout(() => {
         gameOverOverlay.style.display = 'none';
         initGame();
@@ -406,9 +378,9 @@
     /************************************
      * Starting the Game (with Start Overlay)
      ************************************/
-    function startGame() {
-      // Request device orientation permission for iOS 13+ if needed.
-      if (typeof DeviceOrientationEvent !== 'undefined' && 
+    function startGame(e) {
+      e.preventDefault();
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
           .then(response => {
@@ -427,12 +399,11 @@
       startOverlay.style.display = 'none';
     }
 
-    // Event listeners for Start and Restart buttons.
+    // Attach event listeners for both click and touchend.
     startButton.addEventListener('click', startGame);
-    restartButton.addEventListener('click', () => {
-      gameOverOverlay.style.display = 'none';
-      initGame();
-    });
+    startButton.addEventListener('touchend', (e) => { e.preventDefault(); startGame(e); });
+    restartButton.addEventListener('click', (e) => { e.preventDefault(); gameOverOverlay.style.display = 'none'; initGame(); });
+    restartButton.addEventListener('touchend', (e) => { e.preventDefault(); gameOverOverlay.style.display = 'none'; initGame(); });
   </script>
 </body>
 </html>
