@@ -19,7 +19,7 @@
       display: block;
       background: #222;
     }
-    /* HUD to display level, timer, and score */
+    /* HUD for level, timer, and score */
     #hud {
       position: absolute;
       top: 10px;
@@ -28,44 +28,18 @@
       font-size: 20px;
       line-height: 1.5;
     }
-    /* Start/Rules overlay */
-    #startOverlay {
+    /* Instruction message (appears in the upper-right corner) */
+    #instructionMsg {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.9);
-      z-index: 20;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 20px;
-    }
-    #startOverlay h1 {
-      font-size: 2.5em;
-      margin-bottom: 20px;
-    }
-    #startOverlay ul {
-      text-align: left;
-      margin: 0 0 20px 0;
-      padding: 0;
-      list-style: none;
-    }
-    #startOverlay li {
-      font-size: 1.2em;
-      margin: 5px 0;
-    }
-    #startOverlay button {
-      padding: 15px 25px;
-      font-size: 1.2em;
-      background: #28a745;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 12px;
+      border-radius: 5px;
+      font-size: 0.9em;
+      z-index: 15;
+      opacity: 1;
+      transition: opacity 1s ease;
     }
     /* Game Over overlay */
     #gameOverOverlay {
@@ -82,9 +56,9 @@
       align-items: center;
       font-size: 40px;
       z-index: 30;
-      display: none;
       text-align: center;
       padding: 20px;
+      display: none;
     }
     #gameOverOverlay p {
       font-size: 1.2em;
@@ -112,17 +86,11 @@
     <div>Score: <span id="scoreDisplay">0</span></div>
   </div>
 
-  <!-- Start/Rules Overlay -->
-  <div id="startOverlay">
-    <h1>Infinite Maze Runner</h1>
-    <ul>
-      <li>Tilt your device to move the red ball.</li>
-      <li>Reach the green target to complete the level.</li>
-      <li>Each level completion awards 100 points.</li>
-      <li>If the ball completely leaves the screen or time runs out, the game is over.</li>
-      <li>Levels are randomly generated and increase in difficulty.</li>
-    </ul>
-    <button id="startButton">Start Game</button>
+  <!-- Instruction message (briefly shown on load) -->
+  <div id="instructionMsg">
+    <p>Tilt your device to move the red ball.<br>
+    Reach the green target for 100 points.<br>
+    Don't let the ball leave the screen or time run out!</p>
   </div>
 
   <!-- Game Over Overlay -->
@@ -142,8 +110,7 @@
     const levelDisplay = document.getElementById('levelDisplay');
     const timerDisplay = document.getElementById('timerDisplay');
     const scoreDisplay = document.getElementById('scoreDisplay');
-    const startOverlay = document.getElementById('startOverlay');
-    const startButton = document.getElementById('startButton');
+    const instructionMsg = document.getElementById('instructionMsg');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const finalScoreDisplay = document.getElementById('finalScore');
     const finalHighScoreDisplay = document.getElementById('finalHighScore');
@@ -160,7 +127,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Ball object.
+    // Ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -169,13 +136,13 @@
       vy: 0
     };
 
-    // Tilt values.
+    // Tilt values from device orientation.
     let tilt = { x: 0, y: 0 };
     const accelerationFactor = 0.05;
     const friction = 0.98;
 
     // Game state.
-    let currentLevel = 0;
+    let currentLevel = 0; // 0-indexed (displayed as currentLevel+1)
     let currentLevelData = null;
     let remainingTime = 10.0;
     let lastTime = 0;
@@ -184,7 +151,7 @@
     let highScore = parseInt(localStorage.getItem('mazeHighScore')) || 0;
 
     /************************************
-     * Infinite Level Generation
+     * Infinite Level Generation (Random Levels)
      ************************************/
     function generateRandomLevel(levelNumber) {
       let swap = Math.random() < 0.5;
@@ -246,10 +213,25 @@
     if (window.DeviceOrientationEvent && 
         typeof DeviceOrientationEvent.requestPermission !== 'function') {
       window.addEventListener('deviceorientation', handleOrientation);
+    } else {
+      // For iOS, request permission on first touch.
+      window.addEventListener('touchend', function requestPermissionOnce(e) {
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+          DeviceOrientationEvent.requestPermission()
+            .then(response => {
+              if (response === 'granted') {
+                window.addEventListener('deviceorientation', handleOrientation);
+              }
+            })
+            .catch(console.error);
+        }
+        window.removeEventListener('touchend', requestPermissionOnce);
+      });
     }
 
     /************************************
-     * Collision Detection
+     * Collision Detection (Circle vs. Rectangle)
      ************************************/
     function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
       let closestX = Math.max(rx, Math.min(cx, rx + rw));
@@ -272,6 +254,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
 
+      // If ball completely leaves canvas, game over.
       if ((ball.x + ball.radius < 0) ||
           (ball.x - ball.radius > canvas.width) ||
           (ball.y + ball.radius < 0) ||
@@ -280,6 +263,7 @@
         return;
       }
 
+      // Check collisions with walls.
       for (let wall of currentLevelData.walls) {
         let wx = wall.x * canvas.width;
         let wy = wall.y * canvas.height;
@@ -294,6 +278,7 @@
         }
       }
 
+      // Check if ball reaches finish area.
       let finish = currentLevelData.finish;
       let fx = finish.x * canvas.width;
       let fy = finish.y * canvas.height;
@@ -373,38 +358,42 @@
       lastTime = performance.now();
       gameRunning = true;
       requestAnimationFrame(gameLoop);
+      // Fade out instruction message after 3 seconds.
+      setTimeout(() => {
+        instructionMsg.style.opacity = 0;
+        setTimeout(() => { instructionMsg.style.display = 'none'; }, 1000);
+      }, 3000);
     }
 
     /************************************
-     * Start Button Handler (Single Trigger)
+     * Auto-Start on Page Load
      ************************************/
-    let gameStarted = false;
-    function startGame(e) {
-      e.preventDefault();
-      if (gameStarted) return;
-      gameStarted = true;
+    window.addEventListener('load', () => {
+      // Remove the start overlay immediately.
+      startOverlay.style.display = 'none';
+      // For iOS, if permission is needed, wait for first touch.
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation);
-              initGame();
-            } else {
-              alert("Permission for device orientation was denied.");
-            }
-          })
-          .catch(console.error);
+        // Wait for a single touch to request permission.
+        window.addEventListener('touchend', function iosRequest(e) {
+          DeviceOrientationEvent.requestPermission()
+            .then(response => {
+              if (response === 'granted') {
+                window.addEventListener('deviceorientation', handleOrientation);
+              }
+            })
+            .catch(console.error);
+          window.removeEventListener('touchend', iosRequest);
+          // Start the game after permission is requested.
+          initGame();
+        });
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
         initGame();
       }
-      startOverlay.style.display = 'none';
-    }
+    });
 
-    // Attach event listeners for both click and touchend.
-    startButton.addEventListener('click', startGame);
-    startButton.addEventListener('touchend', (e) => { e.preventDefault(); startGame(e); });
+    // Restart button listeners.
     restartButton.addEventListener('click', (e) => { e.preventDefault(); gameOverOverlay.style.display = 'none'; initGame(); });
     restartButton.addEventListener('touchend', (e) => { e.preventDefault(); gameOverOverlay.style.display = 'none'; initGame(); });
   </script>
