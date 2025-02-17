@@ -88,7 +88,7 @@
     const timerDisplay = document.getElementById('timerDisplay');
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
-    
+
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -110,7 +110,7 @@
     const accelerationFactor = 0.05;
     const friction = 0.98;
 
-    // Game state.
+    // Game state variables.
     let currentLevel = 0; // Levels are displayed as currentLevel+1.
     let levelData;        // Contains absolute positions for finish and walls.
     let remainingTime = 10.0;
@@ -122,11 +122,10 @@
      * Infinite Level Generation
      ************************************/
     function generateRandomLevel(levelNumber) {
-      // Choose start and finish positions (with a random coin flip).
+      // Choose start and finish positions (coin flip).
       let swap = Math.random() < 0.5;
       let start = swap ? { x: 0.8, y: 0.8 } : { x: 0.1, y: 0.1 };
       let finish = swap ? { x: 0.1, y: 0.1 } : { x: 0.8, y: 0.8 };
-      // Add slight random variation.
       start.x += (Math.random() - 0.5) * 0.05;
       start.y += (Math.random() - 0.5) * 0.05;
       finish.x += (Math.random() - 0.5) * 0.05;
@@ -159,7 +158,7 @@
       return { start, finish, walls };
     }
 
-    // Load a level: generate a new random level and convert positions to absolute.
+    // Load a level and convert relative positions to absolute.
     function loadLevel(levelNumber, reset = true) {
       let level = generateRandomLevel(levelNumber);
       levelData = {
@@ -190,11 +189,9 @@
      * Device Orientation Handling
      ************************************/
     function handleOrientation(event) {
-      // event.gamma: left/right tilt; event.beta: front/back tilt.
       tilt.x = event.gamma || 0;
       tilt.y = event.beta || 0;
     }
-    // For non-iOS devices, attach immediately.
     if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
       window.addEventListener('deviceorientation', handleOrientation);
     }
@@ -214,7 +211,6 @@
      * Game Update Logic (Refactored)
      ************************************/
     function update(delta) {
-      // Update velocity and position.
       ball.vx += tilt.x * accelerationFactor;
       ball.vy += tilt.y * accelerationFactor;
       ball.vx *= friction;
@@ -222,7 +218,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check if the ball's center is within the finish area.
+      // Check if ball's center is within finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -232,17 +228,16 @@
         return;
       }
       
-      // Check if the ball touches any canvas edge.
+      // Check if ball touches any canvas edge.
       if (ball.x - ball.radius <= 0 || ball.x + ball.radius >= canvas.width ||
           ball.y - ball.radius <= 0 || ball.y + ball.radius >= canvas.height) {
         gameOver();
         return;
       }
       
-      // Save previous position in case a wall collision occurs.
+      // Save previous position for wall collision correction.
       let prevX = ball.x - ball.vx;
       let prevY = ball.y - ball.vy;
-      // Check collision with walls.
       for (let wall of levelData.walls) {
         if (circleRectCollision(ball.x, ball.y, ball.radius, wall.x, wall.y, wall.width, wall.height)) {
           ball.x = prevX;
@@ -253,7 +248,6 @@
         }
       }
       
-      // Update the timer.
       remainingTime -= delta / 1000;
       if (remainingTime <= 0) {
         gameOver();
@@ -294,7 +288,7 @@
     }
 
     /************************************
-     * Game Over Handling
+     * Game Over Handling (Reset Score & Level)
      ************************************/
     function gameOver() {
       gameRunning = false;
@@ -306,7 +300,11 @@
       gameOverOverlay.style.display = 'flex';
       setTimeout(() => {
         gameOverOverlay.style.display = 'none';
+        // Reset score and level.
+        score = 0;
+        currentLevel = 0;
         loadLevel(currentLevel);
+        remainingTime = 10.0;
         lastTime = performance.now();
         gameRunning = true;
         requestAnimationFrame(gameLoop);
