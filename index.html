@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Modern Bright Background with Animated Gradient */
+    /* Bright, Modern Background with Subtle Animation */
     html, body {
       margin: 0;
       padding: 0;
@@ -21,24 +21,25 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas: White Background for Clarity */
+    /* Canvas with crisp white background for drawing */
     #gameCanvas {
       display: block;
       background: #fff;
     }
-    /* HUD Styling: Clean, Semi-Transparent Box */
+    /* Clean HUD styling with semi-transparent white background */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
       z-index: 10;
       font-size: 22px;
+      line-height: 1.6;
       background: rgba(255,255,255,0.9);
       padding: 10px 15px;
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-    /* Start Button: Modern Flat Design */
+    /* Modern Start Button */
     #startButton {
       position: absolute;
       top: 50%;
@@ -47,57 +48,37 @@
       padding: 20px 30px;
       font-size: 24px;
       background: #4caf50;
+      color: #fff;
       border: none;
       border-radius: 5px;
-      color: #fff;
-      cursor: pointer;
       box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
       transition: background 0.3s ease;
       z-index: 20;
     }
     #startButton:hover {
       background: #43a047;
     }
-    /* Game Over Overlay: Sleek & Modern */
+    /* Sleek Game Over Overlay */
     #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0,0,0,0.8);
-      color: #fff;
+      background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(30,30,30,0.9));
+      color: #f9f9f9;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      font-size: 36px;
+      font-size: 48px;
       z-index: 30;
       text-align: center;
-      padding: 30px;
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-    #gameOverOverlay.show {
-      opacity: 1;
-    }
-    #gameOverOverlay .message {
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-    #gameOverOverlay button {
-      padding: 15px 25px;
-      font-size: 20px;
-      background: #4caf50;
-      border: none;
-      border-radius: 5px;
-      color: #fff;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-      transition: background 0.3s ease;
-    }
-    #gameOverOverlay button:hover {
-      background: #43a047;
+      padding: 40px;
+      border-top: 6px solid #e91e63;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+      display: none;
     }
   </style>
 </head>
@@ -109,11 +90,10 @@
   </div>
   <button id="startButton">Start Game</button>
   <div id="gameOverOverlay">
-    <div class="message">Game Over!</div>
-    <div id="scoreInfo"></div>
-    <button id="restartButton">Play Again</button>
+    Game Over!<br>
+    <span id="scoreInfo"></span>
   </div>
-  
+
   <script>
     /************************************
      * Global Variables and Setup
@@ -125,7 +105,6 @@
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
-    const restartButton = document.getElementById('restartButton');
     
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -134,7 +113,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // Ball object.
+    // Ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -149,8 +128,8 @@
     const friction = 0.98;
     
     // Game state variables.
-    let currentLevel = 0; // Displayed as currentLevel + 1.
-    let levelData;        // Contains absolute positions for finish & walls.
+    let currentLevel = 0;  // Levels displayed as currentLevel + 1.
+    let levelData;         // Contains absolute positions for finish & walls.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -160,7 +139,6 @@
      * Infinite Level Generation
      ************************************/
     function generateRandomLevel(levelNumber) {
-      // Choose start and finish positions (coin flip).
       let swap = Math.random() < 0.5;
       let start = swap ? { x: 0.8, y: 0.8 } : { x: 0.1, y: 0.1 };
       let finish = swap ? { x: 0.1, y: 0.1 } : { x: 0.8, y: 0.8 };
@@ -171,7 +149,6 @@
       finish.width = 0.1;
       finish.height = 0.1;
       
-      // Generate random walls.
       let walls = [];
       let numWalls = Math.min(10, 3 + Math.floor(currentLevel / 2));
       let attempts = 0;
@@ -256,7 +233,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check if ball's center is within finish area.
+      // Check if the ball's center enters the finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -266,7 +243,7 @@
         return;
       }
       
-      // Trigger game over only if the entire ball is off-screen.
+      // Only trigger game over if the entire ball is off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -275,7 +252,7 @@
         return;
       }
       
-      // Check collisions with walls and apply a gentle bounce.
+      // Check collisions with walls and gently bounce.
       let prevX = ball.x - ball.vx;
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
@@ -300,14 +277,16 @@
      ************************************/
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw finish area.
       let finish = levelData.finish;
       ctx.fillStyle = 'green';
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      // Obstacles now in dark gray.
+      // Draw walls (changed from white to dark gray).
       ctx.fillStyle = '#333';
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
+      // Draw the ball.
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = 'red';
@@ -337,16 +316,17 @@
       if (score > storedHighScore) {
         localStorage.setItem('mazeHighScore', score);
       }
-      scoreInfo.innerText = `Score: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
-      gameOverOverlay.classList.add('show');
+      gameOverOverlay.innerText = `Game Over!\nScore: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
+      gameOverOverlay.style.display = 'flex';
       setTimeout(() => {
-        gameOverOverlay.classList.remove('show');
+        // Reset score and level.
         score = 0;
         currentLevel = 0;
         loadLevel(currentLevel);
         remainingTime = 10.0;
         lastTime = performance.now();
         gameRunning = true;
+        gameOverOverlay.style.display = 'none';
         requestAnimationFrame(gameLoop);
       }, 2000);
     }
@@ -370,6 +350,7 @@
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
       }
+      // Reset score and level on fresh start.
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
@@ -379,10 +360,6 @@
     }
     
     startButton.addEventListener('click', startGame);
-    restartButton.addEventListener('click', () => {
-      gameOverOverlay.classList.remove('show');
-      startGame();
-    });
   </script>
 </body>
 </html>
