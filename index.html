@@ -5,16 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Motion-Controlled Maze Game</title>
   <style>
-    /* Global Styles & Animated Background */
-    html, body {
+    /* Global Reset & Modern Base */
+    * {
       margin: 0;
       padding: 0;
-      overflow: hidden;
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
       font-family: 'Roboto', sans-serif;
-      background: linear-gradient(135deg, #89f7fe, #66a6ff);
-      background-size: 200% 200%;
-      animation: gradientBG 10s ease infinite;
       -webkit-font-smoothing: antialiased;
+    }
+    /* Animated Gradient Background */
+    body {
+      background: linear-gradient(135deg, #8EC5FC, #E0C3FC);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
       color: #333;
     }
     @keyframes gradientBG {
@@ -22,103 +28,87 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas Styling */
+    /* Canvas for Game */
     #gameCanvas {
       display: block;
       background: #fff;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
-    /* HUD Styling */
+    /* Glassmorphism-style HUD */
     #hud {
       position: absolute;
       top: 20px;
       left: 20px;
-      z-index: 10;
+      padding: 12px 18px;
+      background: rgba(255, 255, 255, 0.75);
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       font-size: 20px;
-      padding: 10px 15px;
-      background: rgba(0, 0, 0, 0.6);
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-      color: #fff;
+      z-index: 10;
     }
-    #hud div {
-      margin-bottom: 5px;
-    }
-    /* Start Button Styling */
+    /* Modern Flat Start Button */
     #startButton {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 24px;
-      background: #ff7043;
+      padding: 18px 28px;
+      font-size: 22px;
+      background: #4CAF50;
       color: #fff;
       border: none;
       border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
       cursor: pointer;
-      transition: background 0.3s ease, transform 0.3s ease;
       z-index: 20;
+      transition: background 0.3s ease, transform 0.2s ease;
     }
     #startButton:hover {
-      background: #ff5722;
+      background: #43A047;
       transform: translate(-50%, -50%) scale(1.05);
     }
-    /* Game Over Overlay Styling */
+    /* Sleek Game Over Overlay */
     #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(240,240,240,0.95));
+      background: rgba(255,255,255,0.95);
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 30;
       text-align: center;
       padding: 40px;
-      border-top: 6px solid #ff5722;
+      z-index: 30;
+      border-top: 6px solid #E91E63;
       box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+      font-size: 36px;
+      color: #E91E63;
       display: none;
-      color: #333;
     }
-    #gameOverOverlay h1 {
-      font-size: 48px;
-      margin-bottom: 20px;
-    }
-    #gameOverOverlay p {
-      font-size: 22px;
-      margin-bottom: 30px;
-    }
-    #gameOverOverlay button {
-      padding: 15px 30px;
-      font-size: 22px;
-      background: #ff7043;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-    #gameOverOverlay button:hover {
-      background: #ff5722;
+    #gameOverOverlay span {
+      font-size: 24px;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+  
+  <!-- Heads-Up Display -->
   <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
   </div>
+  
+  <!-- Start Button -->
   <button id="startButton">Start Game</button>
+  
+  <!-- Game Over Overlay -->
   <div id="gameOverOverlay">
-    <h1>Game Over!</h1>
-    <p id="scoreInfo"></p>
-    <button id="restartButton">Restart</button>
+    Game Over!
+    <span id="scoreInfo"></span>
   </div>
   
   <script>
@@ -132,7 +122,6 @@
     const startButton = document.getElementById('startButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
-    const restartButton = document.getElementById('restartButton');
     
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -141,7 +130,7 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // The ball controlled by the player.
+    // Ball controlled by the player.
     let ball = {
       x: 0,
       y: 0,
@@ -156,8 +145,8 @@
     const friction = 0.98;
     
     // Game state variables.
-    let currentLevel = 0; // Levels displayed as currentLevel+1.
-    let levelData;        // Contains absolute positions for finish and walls.
+    let currentLevel = 0;  // Displayed as currentLevel+1.
+    let levelData;         // Contains absolute coordinates for finish and walls.
     let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
@@ -261,7 +250,7 @@
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check finish area (ball's center enters the target).
+      // Check if the ball's center enters the finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
@@ -271,7 +260,7 @@
         return;
       }
       
-      // Trigger game over only if the entire ball is off-screen.
+      // Only trigger game over if the entire ball is off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -280,7 +269,7 @@
         return;
       }
       
-      // Check collisions with walls and apply a gentle bounce.
+      // Collision with walls: gentle bounce.
       let prevX = ball.x - ball.vx;
       let prevY = ball.y - ball.vy;
       for (let wall of levelData.walls) {
@@ -308,8 +297,8 @@
       let finish = levelData.finish;
       ctx.fillStyle = 'green';
       ctx.fillRect(finish.x, finish.y, finish.width, finish.height);
-      // Obstacles are now dark gray for contrast.
-      ctx.fillStyle = '#333';
+      // Obstacles now in dark gray for contrast.
+      ctx.fillStyle = '#444';
       levelData.walls.forEach(wall => {
         ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
       });
@@ -345,7 +334,6 @@
       scoreInfo.innerText = `Score: ${score}\nHigh Score: ${Math.max(score, storedHighScore)}`;
       gameOverOverlay.style.display = 'flex';
       setTimeout(() => {
-        // Reset score and level.
         score = 0;
         currentLevel = 0;
         loadLevel(currentLevel);
@@ -376,7 +364,6 @@
       } else {
         window.addEventListener('deviceorientation', handleOrientation);
       }
-      // Reset score and level on fresh start.
       score = 0;
       currentLevel = 0;
       loadLevel(currentLevel);
@@ -386,15 +373,6 @@
     }
     
     startButton.addEventListener('click', startGame);
-    restartButton.addEventListener('click', () => {
-      gameOverOverlay.style.display = 'none';
-      startGame();
-    });
-    restartButton.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      gameOverOverlay.style.display = 'none';
-      startGame();
-    });
   </script>
 </body>
 </html>
