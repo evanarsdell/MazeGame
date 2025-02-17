@@ -573,12 +573,17 @@
       }
     }
 
-    // Event Listeners for Start & Restart Buttons.
-    startButton.addEventListener('click', () => {
+    // Helper function to handle start (for both click and touchend).
+    function startGameHandler() {
       startOverlay.classList.add('hidden');
       startGame();
-    });
+    }
+
+    // Event Listeners for Start & Restart Buttons.
+    startButton.addEventListener('click', startGameHandler);
+    startButton.addEventListener('touchend', startGameHandler);
     restartButton.addEventListener('click', restartGame);
+    restartButton.addEventListener('touchend', restartGame);
   </script>
 </body>
 </html>
