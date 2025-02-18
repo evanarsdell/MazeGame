@@ -8,7 +8,7 @@
   <!-- Google Font for modern look -->
   <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
   <style>
-    /* Global Reset & Theme (Orange & Blue) */
+    /* Global Reset & Modern Theme (Orange & Blue) */
     * {
       margin: 0;
       padding: 0;
@@ -32,14 +32,14 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas for Game Drawing */
+    /* Canvas */
     #gameCanvas {
       display: block;
       background: #fff;
       margin: auto;
       border: 2px solid #ddd;
     }
-    /* Glassmorphism-style HUD */
+    /* Glassmorphism-style HUD with Timer Bar */
     #hud {
       position: absolute;
       top: 20px;
@@ -51,13 +51,13 @@
       font-size: 20px;
       z-index: 10;
     }
-    /* Timer Progress Bar inside HUD */
+    /* Timer Progress Bar */
     #timerBarContainer {
-      margin-top: 8px;
-      width: 200px;
+      width: 100%;
       height: 8px;
       background: rgba(0,0,0,0.2);
       border-radius: 4px;
+      margin-top: 5px;
       overflow: hidden;
     }
     #timerBar {
@@ -66,7 +66,7 @@
       background: #2196f3;
       transition: width 0.1s linear;
     }
-    /* Overlays: Start, Pause, Settings, Game Over, Level Complete */
+    /* Overlays */
     #startOverlay,
     #pauseOverlay,
     #settingsOverlay,
@@ -95,6 +95,14 @@
       font-size: 18px;
       margin-bottom: 30px;
       color: #333;
+    }
+    /* Level Complete Overlay (dynamic feedback) */
+    #levelCompleteOverlay {
+      display: none;
+      background: rgba(255,255,255,0.9);
+      font-size: 48px;
+      color: #43a047;
+      font-weight: bold;
     }
     /* Modern Flat Buttons */
     button {
@@ -126,7 +134,7 @@
       margin: 10px 0;
       color: #333;
     }
-    /* Game Over Overlay: Sleek & Animated */
+    /* Game Over Overlay: Sleek & Modern */
     #gameOverOverlay {
       display: none;
       background: rgba(0,0,0,0.9);
@@ -155,17 +163,6 @@
     #gameOverOverlay .score-line .highScore {
       color: #2196f3;
       font-weight: bold;
-    }
-    /* Level Complete Overlay */
-    #levelCompleteOverlay {
-      display: none;
-      background: rgba(255,255,255,0.95);
-      border: 4px solid #4caf50;
-      border-radius: 12px;
-      padding: 40px 60px;
-      font-size: 36px;
-      color: #4caf50;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     /* Pause Button (always visible) */
     #pauseButton {
@@ -207,7 +204,7 @@
     <source src="https://www.soundjay.com/button/sounds/button-3.mp3" type="audio/mpeg">
   </audio>
   
-  <!-- Overlays -->
+  <!-- Start Overlay with Instructions -->
   <div id="startOverlay">
     <h1>Maze Runner</h1>
     <p>Hold your phone flat. Tilt slowly to guide the ball into the target.<br>
@@ -215,12 +212,17 @@
     <button id="startButton">Start Game</button>
   </div>
   
+  <!-- Level Complete Overlay -->
+  <div id="levelCompleteOverlay">Level Complete!</div>
+  
+  <!-- Pause Overlay -->
   <div id="pauseOverlay">
     <h1>Paused</h1>
     <button id="resumeButton">Resume</button>
     <button id="settingsButton">Settings</button>
   </div>
   
+  <!-- Settings Overlay -->
   <div id="settingsOverlay">
     <h1>Settings</h1>
     <p>Sensitivity: <input type="range" id="sensitivitySlider" min="0.01" max="0.1" step="0.005" value="0.05"></p>
@@ -228,6 +230,7 @@
     <button id="closeSettingsButton">Close</button>
   </div>
   
+  <!-- Game Over Overlay -->
   <div id="gameOverOverlay">
     <h1>Game Over!</h1>
     <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
@@ -235,10 +238,7 @@
     <button id="restartButton">Restart</button>
   </div>
   
-  <div id="levelCompleteOverlay">
-    Level Complete!
-  </div>
-  
+  <!-- Transition Overlay -->
   <div id="transitionOverlay"></div>
   
   <!-- Game Canvas -->
@@ -248,10 +248,10 @@
   <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
-    <div>Score: <span id="scoreDisplay">0</span></div>
     <div id="timerBarContainer">
       <div id="timerBar"></div>
     </div>
+    <div>Score: <span id="scoreDisplay">0</span></div>
   </div>
   
   <!-- Pause Button -->
@@ -269,6 +269,7 @@
     const timerBar = document.getElementById('timerBar');
     const startOverlay = document.getElementById('startOverlay');
     const startButton = document.getElementById('startButton');
+    const levelCompleteOverlay = document.getElementById('levelCompleteOverlay');
     const pauseOverlay = document.getElementById('pauseOverlay');
     const resumeButton = document.getElementById('resumeButton');
     const settingsButton = document.getElementById('settingsButton');
@@ -280,11 +281,25 @@
     const scoreInfo = document.getElementById('scoreInfo');
     const highScoreInfo = document.getElementById('highScoreInfo');
     const pauseButton = document.getElementById('pauseButton');
-    const levelCompleteOverlay = document.getElementById('levelCompleteOverlay');
     const transitionOverlay = document.getElementById('transitionOverlay');
     const bgMusic = document.getElementById('bgMusic');
     const collisionSound = document.getElementById('collisionSound');
     const levelCompleteSound = document.getElementById('levelCompleteSound');
+    
+    // Keyboard controls (for desktop testing)
+    let keyboardInput = { left: 0, right: 0, up: 0, down: 0 };
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') keyboardInput.left = 1;
+      if (e.key === 'ArrowRight') keyboardInput.right = 1;
+      if (e.key === 'ArrowUp') keyboardInput.up = 1;
+      if (e.key === 'ArrowDown') keyboardInput.down = 1;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft') keyboardInput.left = 0;
+      if (e.key === 'ArrowRight') keyboardInput.right = 0;
+      if (e.key === 'ArrowUp') keyboardInput.up = 0;
+      if (e.key === 'ArrowDown') keyboardInput.down = 0;
+    });
     
     let musicOn = true;
     bgMusic.volume = 0.5;
@@ -307,14 +322,16 @@
     
     // Tilt values.
     let tilt = { x: 0, y: 0 };
+    let baseAcceleration = 0.05;
+    let difficultyIncrement = 0.005;
     let sensitivity = parseFloat(sensitivitySlider.value);
     const friction = 0.98;
-    const maxTime = 10.0;
     
     // Game state variables.
-    let currentLevel = 0;
+    let currentLevel = 0;  // Displayed as currentLevel+1.
     let levelData;
-    let remainingTime = maxTime;
+    let totalTime = 10.0;
+    let remainingTime = totalTime;
     let lastTime;
     let gameRunning = false;
     let score = 0;
@@ -378,12 +395,11 @@
         ball.y = level.start.y * canvas.height;
         ball.vx = 0;
         ball.vy = 0;
-        remainingTime = maxTime;
+        remainingTime = totalTime;
       }
       levelDisplay.textContent = levelNumber + 1;
       scoreDisplay.textContent = score;
-      updateTimerBar();
-      // Transition overlay effect.
+      // Animate transition overlay.
       transitionOverlay.style.opacity = 1;
       transitionOverlay.style.display = 'block';
       setTimeout(() => {
@@ -397,7 +413,7 @@
     }
     
     /************************************
-     * Device Orientation Handling & Parallax
+     * Device Orientation & Parallax
      ************************************/
     function handleOrientation(event) {
       tilt.x = event.gamma || 0;
@@ -457,41 +473,50 @@
     }
     
     /************************************
-     * Update Timer Progress Bar
-     ************************************/
-    function updateTimerBar() {
-      let percent = (remainingTime / maxTime) * 100;
-      timerBar.style.width = `${percent}%`;
-    }
-    
-    /************************************
      * Game Update Logic
      ************************************/
     function update(delta) {
       sensitivity = parseFloat(sensitivitySlider.value);
-      // Increase acceleration slightly with level.
-      let acceleration = accelerationFactor + currentLevel * 0.005;
-      ball.vx += tilt.x * sensitivity * acceleration;
-      ball.vy += tilt.y * sensitivity * acceleration;
+      // Increase acceleration with level difficulty.
+      let effectiveAcceleration = baseAcceleration + difficultyIncrement * currentLevel;
+      ball.vx += tilt.x * effectiveAcceleration;
+      ball.vy += tilt.y * effectiveAcceleration;
+      // Add keyboard input (for desktop)
+      ball.vx += (keyboardInput.right - keyboardInput.left) * sensitivity;
+      ball.vy += (keyboardInput.down - keyboardInput.up) * sensitivity;
+      
       ball.vx *= friction;
       ball.vy *= friction;
       ball.x += ball.vx;
       ball.y += ball.vy;
       
+      // Check finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
         navigator.vibrate && navigator.vibrate(100);
         levelCompleteSound.currentTime = 0;
         levelCompleteSound.play();
-        createParticles();
-        showLevelCompleteOverlay();
-        score += 100;
-        currentLevel++;
-        loadLevel(currentLevel);
+        // Show level complete overlay.
+        levelCompleteOverlay.style.display = 'flex';
+        levelCompleteOverlay.style.opacity = 0;
+        setTimeout(() => {
+          levelCompleteOverlay.style.transition = 'opacity 0.5s ease';
+          levelCompleteOverlay.style.opacity = 1;
+          setTimeout(() => {
+            levelCompleteOverlay.style.opacity = 0;
+            setTimeout(() => {
+              levelCompleteOverlay.style.display = 'none';
+              score += 100;
+              currentLevel++;
+              loadLevel(currentLevel);
+            }, 500);
+          }, 800);
+        }, 0);
         return;
       }
       
+      // Only trigger game over if the entire ball is off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -520,7 +545,8 @@
         gameOver();
       }
       timerDisplay.textContent = remainingTime.toFixed(1);
-      updateTimerBar();
+      // Update timer progress bar.
+      timerBar.style.width = `${(remainingTime / totalTime) * 100}%`;
       updateParticles(delta);
     }
     
@@ -558,22 +584,6 @@
     }
     
     /************************************
-     * Level Complete Overlay
-     ************************************/
-    function showLevelCompleteOverlay() {
-      levelCompleteOverlay.style.display = 'flex';
-      levelCompleteOverlay.style.opacity = 1;
-      setTimeout(() => {
-        levelCompleteOverlay.style.transition = 'opacity 0.5s ease';
-        levelCompleteOverlay.style.opacity = 0;
-        setTimeout(() => {
-          levelCompleteOverlay.style.display = 'none';
-          levelCompleteOverlay.style.transition = '';
-        }, 500);
-      }, 1000);
-    }
-    
-    /************************************
      * Game Over Handling (Reset Score & Level)
      ************************************/
     function gameOver() {
@@ -591,7 +601,7 @@
             score = 0;
             currentLevel = 0;
             loadLevel(currentLevel);
-            remainingTime = maxTime;
+            remainingTime = totalTime;
             lastTime = performance.now();
             gameRunning = true;
             requestAnimationFrame(gameLoop);
@@ -616,6 +626,23 @@
       }
       requestAnimationFrame(step);
     }
+    
+    /************************************
+     * Keyboard Controls for Desktop Testing
+     ************************************/
+    let keyboardInput = { left: 0, right: 0, up: 0, down: 0 };
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') keyboardInput.left = 1;
+      if (e.key === 'ArrowRight') keyboardInput.right = 1;
+      if (e.key === 'ArrowUp') keyboardInput.up = 1;
+      if (e.key === 'ArrowDown') keyboardInput.down = 1;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft') keyboardInput.left = 0;
+      if (e.key === 'ArrowRight') keyboardInput.right = 0;
+      if (e.key === 'ArrowUp') keyboardInput.up = 0;
+      if (e.key === 'ArrowDown') keyboardInput.down = 0;
+    });
     
     /************************************
      * Pause & Settings Functionality
@@ -655,30 +682,20 @@
     });
     
     /************************************
-     * Keyboard Controls (for Desktop Testing)
+     * Device Orientation Handling & Parallax
      ************************************/
-    window.addEventListener('keydown', (e) => {
-      const speed = 1;
-      if (e.key === 'ArrowUp') {
-        ball.vy -= speed;
-      } else if (e.key === 'ArrowDown') {
-        ball.vy += speed;
-      } else if (e.key === 'ArrowLeft') {
-        ball.vx -= speed;
-      } else if (e.key === 'ArrowRight') {
-        ball.vx += speed;
-      } else if (e.key === 'p' || e.key === 'P') {
-        // Toggle pause/resume with 'P'
-        if (gameRunning) {
-          pauseButton.click();
-        } else {
-          resumeButton.click();
-        }
-      }
-    });
+    function handleOrientation(event) {
+      tilt.x = event.gamma || 0;
+      tilt.y = event.beta || 0;
+      document.body.style.backgroundPosition = `${50 - tilt.x}% ${50 - tilt.y}%`;
+    }
+    if (window.DeviceOrientationEvent &&
+        typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
     
     /************************************
-     * Device Orientation Handling & iOS Permission
+     * Starting the Game and Requesting Permissions
      ************************************/
     function requestDeviceMotionPermission() {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
@@ -697,18 +714,17 @@
       }
     }
     
-    /************************************
-     * Starting the Game
-     ************************************/
     function startGame() {
       startOverlay.style.display = 'none';
       requestDeviceMotionPermission();
       bgMusic.volume = 0.5;
-      if (musicOn) {
+      if(musicOn) {
         bgMusic.play().catch(e => {});
       }
       score = 0;
       currentLevel = 0;
+      totalTime = 10.0;
+      remainingTime = totalTime;
       loadLevel(currentLevel);
       gameRunning = true;
       lastTime = performance.now();
