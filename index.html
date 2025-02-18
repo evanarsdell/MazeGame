@@ -32,14 +32,14 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
-    /* Canvas */
+    /* Canvas for Game Drawing */
     #gameCanvas {
       display: block;
       background: #fff;
-      margin: auto;
+      margin: 80px auto 20px; /* space for top-right buttons */
       border: 2px solid #ddd;
     }
-    /* Glassmorphism-style HUD with Timer Bar */
+    /* Glassmorphic-style HUD */
     #hud {
       position: absolute;
       top: 20px;
@@ -51,27 +51,11 @@
       font-size: 20px;
       z-index: 10;
     }
-    /* Timer Progress Bar */
-    #timerBarContainer {
-      width: 100%;
-      height: 8px;
-      background: rgba(0,0,0,0.2);
-      border-radius: 4px;
-      margin-top: 5px;
-      overflow: hidden;
-    }
-    #timerBar {
-      width: 100%;
-      height: 100%;
-      background: #2196f3;
-      transition: width 0.1s linear;
-    }
-    /* Overlays */
+    /* Overlays: Start, Pause, Settings, Game Over */
     #startOverlay,
     #pauseOverlay,
     #settingsOverlay,
-    #gameOverOverlay,
-    #levelCompleteOverlay {
+    #gameOverOverlay {
       position: absolute;
       top: 0;
       left: 0;
@@ -96,14 +80,6 @@
       margin-bottom: 30px;
       color: #333;
     }
-    /* Level Complete Overlay (dynamic feedback) */
-    #levelCompleteOverlay {
-      display: none;
-      background: rgba(255,255,255,0.9);
-      font-size: 48px;
-      color: #43a047;
-      font-weight: bold;
-    }
     /* Modern Flat Buttons */
     button {
       padding: 15px 25px;
@@ -125,7 +101,7 @@
     #pauseOverlay {
       display: none;
     }
-    /* Settings Overlay: Sensitivity & Music Toggle */
+    /* Settings Overlay: Only Sensitivity & Close */
     #settingsOverlay {
       display: none;
     }
@@ -134,7 +110,7 @@
       margin: 10px 0;
       color: #333;
     }
-    /* Game Over Overlay: Sleek & Modern */
+    /* Sleek Game Over Overlay */
     #gameOverOverlay {
       display: none;
       background: rgba(0,0,0,0.9);
@@ -164,11 +140,15 @@
       color: #2196f3;
       font-weight: bold;
     }
-    /* Pause Button (always visible) */
-    #pauseButton {
+    /* Pause & Mute Buttons Container */
+    #topButtons {
       position: absolute;
       top: 20px;
       right: 20px;
+      z-index: 15;
+    }
+    /* Pause Button */
+    #pauseButton {
       padding: 10px 15px;
       font-size: 18px;
       background: #2196f3;
@@ -176,7 +156,17 @@
       border-radius: 5px;
       color: #fff;
       cursor: pointer;
-      z-index: 15;
+      margin-right: 10px;
+    }
+    /* Mute Button (Microphone Icon) */
+    #muteButton {
+      padding: 10px 15px;
+      font-size: 18px;
+      background: #2196f3;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
     }
     /* Transition Overlay for Level Transitions */
     #transitionOverlay {
@@ -204,7 +194,7 @@
     <source src="https://www.soundjay.com/button/sounds/button-3.mp3" type="audio/mpeg">
   </audio>
   
-  <!-- Start Overlay with Instructions -->
+  <!-- Overlays -->
   <div id="startOverlay">
     <h1>Maze Runner</h1>
     <p>Hold your phone flat. Tilt slowly to guide the ball into the target.<br>
@@ -212,25 +202,18 @@
     <button id="startButton">Start Game</button>
   </div>
   
-  <!-- Level Complete Overlay -->
-  <div id="levelCompleteOverlay">Level Complete!</div>
-  
-  <!-- Pause Overlay -->
   <div id="pauseOverlay">
     <h1>Paused</h1>
     <button id="resumeButton">Resume</button>
     <button id="settingsButton">Settings</button>
   </div>
   
-  <!-- Settings Overlay -->
   <div id="settingsOverlay">
     <h1>Settings</h1>
     <p>Sensitivity: <input type="range" id="sensitivitySlider" min="0.01" max="0.1" step="0.005" value="0.05"></p>
-    <p>Music: <button id="musicToggleButton">Music: On</button></p>
     <button id="closeSettingsButton">Close</button>
   </div>
   
-  <!-- Game Over Overlay -->
   <div id="gameOverOverlay">
     <h1>Game Over!</h1>
     <div class="score-line">Score: <span class="score" id="scoreInfo">0</span></div>
@@ -238,7 +221,6 @@
     <button id="restartButton">Restart</button>
   </div>
   
-  <!-- Transition Overlay -->
   <div id="transitionOverlay"></div>
   
   <!-- Game Canvas -->
@@ -248,14 +230,14 @@
   <div id="hud">
     <div>Level: <span id="levelDisplay">1</span></div>
     <div>Time: <span id="timerDisplay">10.0</span>s</div>
-    <div id="timerBarContainer">
-      <div id="timerBar"></div>
-    </div>
     <div>Score: <span id="scoreDisplay">0</span></div>
   </div>
   
-  <!-- Pause Button -->
-  <button id="pauseButton">Pause</button>
+  <!-- Top-Right Buttons Container -->
+  <div id="topButtons">
+    <button id="pauseButton">Pause</button>
+    <button id="muteButton">&#127908;</button>
+  </div>
   
   <script>
     /************************************
@@ -266,40 +248,23 @@
     const levelDisplay = document.getElementById('levelDisplay');
     const timerDisplay = document.getElementById('timerDisplay');
     const scoreDisplay = document.getElementById('scoreDisplay');
-    const timerBar = document.getElementById('timerBar');
     const startOverlay = document.getElementById('startOverlay');
     const startButton = document.getElementById('startButton');
-    const levelCompleteOverlay = document.getElementById('levelCompleteOverlay');
     const pauseOverlay = document.getElementById('pauseOverlay');
     const resumeButton = document.getElementById('resumeButton');
     const settingsButton = document.getElementById('settingsButton');
     const settingsOverlay = document.getElementById('settingsOverlay');
     const sensitivitySlider = document.getElementById('sensitivitySlider');
-    const musicToggleButton = document.getElementById('musicToggleButton');
     const closeSettingsButton = document.getElementById('closeSettingsButton');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const scoreInfo = document.getElementById('scoreInfo');
     const highScoreInfo = document.getElementById('highScoreInfo');
     const pauseButton = document.getElementById('pauseButton');
+    const muteButton = document.getElementById('muteButton');
     const transitionOverlay = document.getElementById('transitionOverlay');
     const bgMusic = document.getElementById('bgMusic');
     const collisionSound = document.getElementById('collisionSound');
     const levelCompleteSound = document.getElementById('levelCompleteSound');
-    
-    // Keyboard controls (for desktop testing)
-    let keyboardInput = { left: 0, right: 0, up: 0, down: 0 };
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') keyboardInput.left = 1;
-      if (e.key === 'ArrowRight') keyboardInput.right = 1;
-      if (e.key === 'ArrowUp') keyboardInput.up = 1;
-      if (e.key === 'ArrowDown') keyboardInput.down = 1;
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowLeft') keyboardInput.left = 0;
-      if (e.key === 'ArrowRight') keyboardInput.right = 0;
-      if (e.key === 'ArrowUp') keyboardInput.up = 0;
-      if (e.key === 'ArrowDown') keyboardInput.down = 0;
-    });
     
     let musicOn = true;
     bgMusic.volume = 0.5;
@@ -322,16 +287,13 @@
     
     // Tilt values.
     let tilt = { x: 0, y: 0 };
-    let baseAcceleration = 0.05;
-    let difficultyIncrement = 0.005;
     let sensitivity = parseFloat(sensitivitySlider.value);
     const friction = 0.98;
     
     // Game state variables.
-    let currentLevel = 0;  // Displayed as currentLevel+1.
+    let currentLevel = 0;
     let levelData;
-    let totalTime = 10.0;
-    let remainingTime = totalTime;
+    let remainingTime = 10.0;
     let lastTime;
     let gameRunning = false;
     let score = 0;
@@ -395,11 +357,11 @@
         ball.y = level.start.y * canvas.height;
         ball.vx = 0;
         ball.vy = 0;
-        remainingTime = totalTime;
+        remainingTime = 10.0;
       }
       levelDisplay.textContent = levelNumber + 1;
       scoreDisplay.textContent = score;
-      // Animate transition overlay.
+      // Transition overlay effect.
       transitionOverlay.style.opacity = 1;
       transitionOverlay.style.display = 'block';
       setTimeout(() => {
@@ -413,7 +375,7 @@
     }
     
     /************************************
-     * Device Orientation & Parallax
+     * Device Orientation Handling & Parallax
      ************************************/
     function handleOrientation(event) {
       tilt.x = event.gamma || 0;
@@ -477,46 +439,26 @@
      ************************************/
     function update(delta) {
       sensitivity = parseFloat(sensitivitySlider.value);
-      // Increase acceleration with level difficulty.
-      let effectiveAcceleration = baseAcceleration + difficultyIncrement * currentLevel;
-      ball.vx += tilt.x * effectiveAcceleration;
-      ball.vy += tilt.y * effectiveAcceleration;
-      // Add keyboard input (for desktop)
-      ball.vx += (keyboardInput.right - keyboardInput.left) * sensitivity;
-      ball.vy += (keyboardInput.down - keyboardInput.up) * sensitivity;
-      
+      ball.vx += tilt.x * sensitivity;
+      ball.vy += tilt.y * sensitivity;
       ball.vx *= friction;
       ball.vy *= friction;
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check finish area.
       let finish = levelData.finish;
       if (ball.x > finish.x && ball.x < finish.x + finish.width &&
           ball.y > finish.y && ball.y < finish.y + finish.height) {
         navigator.vibrate && navigator.vibrate(100);
         levelCompleteSound.currentTime = 0;
         levelCompleteSound.play();
-        // Show level complete overlay.
-        levelCompleteOverlay.style.display = 'flex';
-        levelCompleteOverlay.style.opacity = 0;
-        setTimeout(() => {
-          levelCompleteOverlay.style.transition = 'opacity 0.5s ease';
-          levelCompleteOverlay.style.opacity = 1;
-          setTimeout(() => {
-            levelCompleteOverlay.style.opacity = 0;
-            setTimeout(() => {
-              levelCompleteOverlay.style.display = 'none';
-              score += 100;
-              currentLevel++;
-              loadLevel(currentLevel);
-            }, 500);
-          }, 800);
-        }, 0);
+        createParticles();
+        score += 100;
+        currentLevel++;
+        loadLevel(currentLevel);
         return;
       }
       
-      // Only trigger game over if the entire ball is off-screen.
       if (ball.x + ball.radius < 0 ||
           ball.x - ball.radius > canvas.width ||
           ball.y + ball.radius < 0 ||
@@ -545,8 +487,6 @@
         gameOver();
       }
       timerDisplay.textContent = remainingTime.toFixed(1);
-      // Update timer progress bar.
-      timerBar.style.width = `${(remainingTime / totalTime) * 100}%`;
       updateParticles(delta);
     }
     
@@ -601,7 +541,7 @@
             score = 0;
             currentLevel = 0;
             loadLevel(currentLevel);
-            remainingTime = totalTime;
+            remainingTime = 10.0;
             lastTime = performance.now();
             gameRunning = true;
             requestAnimationFrame(gameLoop);
@@ -628,23 +568,6 @@
     }
     
     /************************************
-     * Keyboard Controls for Desktop Testing
-     ************************************/
-    let keyboardInput = { left: 0, right: 0, up: 0, down: 0 };
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') keyboardInput.left = 1;
-      if (e.key === 'ArrowRight') keyboardInput.right = 1;
-      if (e.key === 'ArrowUp') keyboardInput.up = 1;
-      if (e.key === 'ArrowDown') keyboardInput.down = 1;
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowLeft') keyboardInput.left = 0;
-      if (e.key === 'ArrowRight') keyboardInput.right = 0;
-      if (e.key === 'ArrowUp') keyboardInput.up = 0;
-      if (e.key === 'ArrowDown') keyboardInput.down = 0;
-    });
-    
-    /************************************
      * Pause & Settings Functionality
      ************************************/
     pauseButton.addEventListener('click', () => {
@@ -668,16 +591,20 @@
       settingsOverlay.style.display = 'none';
     });
     sensitivitySlider.addEventListener('input', () => {
-      // sensitivity is updated in update()
+      // Sensitivity value is updated in update().
     });
-    musicToggleButton.addEventListener('click', () => {
+    
+    /************************************
+     * Music Toggle via Mute Button
+     ************************************/
+    muteButton.addEventListener('click', () => {
       musicOn = !musicOn;
       if (musicOn) {
         bgMusic.play();
-        musicToggleButton.innerText = 'Music: On';
+        muteButton.innerHTML = "&#127908;"; // Microphone icon
       } else {
         bgMusic.pause();
-        musicToggleButton.innerText = 'Music: Off';
+        muteButton.innerHTML = "&#128263;"; // Muted speaker icon
       }
     });
     
@@ -718,13 +645,11 @@
       startOverlay.style.display = 'none';
       requestDeviceMotionPermission();
       bgMusic.volume = 0.5;
-      if(musicOn) {
+      if (musicOn) {
         bgMusic.play().catch(e => {});
       }
       score = 0;
       currentLevel = 0;
-      totalTime = 10.0;
-      remainingTime = totalTime;
       loadLevel(currentLevel);
       gameRunning = true;
       lastTime = performance.now();
